@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packing List — PDF → Excel | Serchio Distribuzione</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #2F5496;
+    --blue-light: #D9E1F2;
+    --blue-mid: #4472C4;
+    --green: #375623;
+    --green-bg: #E2EFDA;
+    --red: #9C0006;
+    --red-bg: #FFC7CE;
+    --gray: #595959;
+    --gray-light: #F5F5F5;
+    --border: #D0D0D0;
+    --text: #1a1a1a;
+    --text-muted: #666;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #EEF2F8;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    color: var(--text);
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 620px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    background: var(--blue);
+    padding: 1.5rem 2rem;
+    color: #fff;
+  }
+
+  .card-header .logo {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-bottom: 4px;
+  }
+
+  .card-header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .card-header p {
+    font-size: 13px;
+    opacity: 0.75;
+    margin-top: 4px;
+  }
+
+  .card-body { padding: 1.75rem 2rem; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--gray-light);
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    border-color: var(--blue-mid);
+    background: var(--blue-light);
+  }
+  .upload-zone svg { margin-bottom: 12px; opacity: 0.5; }
+  .upload-zone .label { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .upload-zone .sub { font-size: 13px; color: var(--text-muted); }
+  .upload-zone .link { color: var(--blue-mid); text-decoration: underline; cursor: pointer; }
+  #file-input { display: none; }
+
+  .file-pill {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: var(--blue-light);
+    border: 1px solid #B8CCE4;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  .file-pill svg { flex-shrink: 0; }
+  .file-pill .name { font-weight: 600; color: var(--blue); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-pill .size { color: var(--text-muted); flex-shrink: 0; }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 11px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #253e75; }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-success { background: #375623; color: #fff; }
+  .btn-success:hover { background: #2a4119; }
+
+  .progress-area { display: none; margin-top: 1.25rem; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid #F0F0F0;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .step.active { color: var(--text); font-weight: 600; }
+  .step.active .step-icon svg { animation: spin 1s linear infinite; }
+  .step.done { color: #375623; }
+  .step.error { color: var(--red); }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .result-box {
+    display: none;
+    margin-top: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--green-bg);
+    border: 1px solid #A9D08E;
+    border-radius: 8px;
+  }
+  .result-box .rtitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .error-box {
+    display: none;
+    margin-top: 1rem;
+    padding: 10px 14px;
+    background: var(--red-bg);
+    border: 1px solid #FFA0A0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--red);
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+
+  .note {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--gray-light);
+    border-radius: 8px;
+    padding: 10px 14px;
+    line-height: 1.6;
+  }
+  .note strong { color: var(--text); }
+
+  /* Spinner SVG */
+  .ico-spin { display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <div class="logo">Serchio Distribuzione SRL</div>
+    <h1>Packing List — PDF → Excel</h1>
+    <p>Carica un programma di carico PDF e ottieni un file Excel strutturato</p>
+  </div>
+
+  <div class="card-body">
+
+    <div class="upload-zone" id="drop-zone">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2F5496" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+      <div class="label">Trascina il PDF qui</div>
+      <div class="sub">oppure <span class="link" onclick="document.getElementById('file-input').click()">clicca per scegliere</span></div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf">
+
+    <div class="file-pill" id="file-pill">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2F5496" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="name" id="file-name"></span>
+      <span class="size" id="file-size"></span>
+    </div>
+
+    <button class="btn btn-primary" id="btn-convert" style="display:none" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Converti in Excel
+    </button>
+
+    <div class="progress-area" id="progress-area">
+      <div class="step" id="step-read">
+        <span class="step-icon" id="ico-read">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        </span>
+        Lettura PDF
+      </div>
+      <div class="step" id="step-ai">
+        <span class="step-icon" id="ico-ai">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        </span>
+        Analisi AI — testo stampato e manoscritto
+      </div>
+      <div class="step" id="step-excel">
+        <span class="step-icon" id="ico-excel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        </span>
+        Generazione file Excel
+      </div>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <div class="result-box" id="result-box">
+      <div class="rtitle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#375623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Excel generato con successo
+      </div>
+      <button class="btn btn-success" id="btn-dl">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Scarica .xlsx
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="note">
+      <strong>Come funziona:</strong> il PDF viene inviato all'AI che legge sia il testo stampato che i valori scritti a penna (n. rotoli, pesi), poi genera automaticamente un file Excel strutturato con intestazione, prodotti e totali.
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ⚙️ CONFIGURA QUI il tuo proxy URL dopo il deploy
+const PROXY_URL = 'YOUR_PROXY_URL/api/convert';
+
+let selectedFile = null;
+let excelBlob = null;
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const filePill = document.getElementById('file-pill');
+const btnConvert = document.getElementById('btn-convert');
+const progressArea = document.getElementById('progress-area');
+const resultBox = document.getElementById('result-box');
+const errorBox = document.getElementById('error-box');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file || file.type !== 'application/pdf') { showError('Carica un file PDF valido.'); return; }
+  selectedFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+  filePill.style.display = 'flex';
+  btnConvert.style.display = 'flex';
+  btnConvert.disabled = false;
+  resultBox.style.display = 'none';
+  errorBox.style.display = 'none';
+  excelBlob = null;
+}
+
+const spinSVG = `<svg class="ico-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+const doneSVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+const errSVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+const idleSVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+
+function setStep(id, state) {
+  const el = document.getElementById(id);
+  el.className = 'step ' + state;
+  const ico = document.getElementById('ico-' + id.replace('step-',''));
+  ico.innerHTML = state === 'active' ? spinSVG : state === 'done' ? doneSVG : state === 'error' ? errSVG : idleSVG;
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+}
+
+btnConvert.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  btnConvert.disabled = true;
+  progressArea.style.display = 'block';
+  resultBox.style.display = 'none';
+  errorBox.style.display = 'none';
+  ['step-read','step-ai','step-excel'].forEach(s => setStep(s, ''));
+
+  try {
+    setStep('step-read', 'active');
+    const base64 = await fileToBase64(selectedFile);
+    setStep('step-read', 'done');
+
+    setStep('step-ai', 'active');
+    const parsed = await callAPI(base64);
+    setStep('step-ai', 'done');
+
+    setStep('step-excel', 'active');
+    excelBlob = buildExcel(parsed);
+    setStep('step-excel', 'done');
+
+    resultBox.style.display = 'block';
+  } catch(e) {
+    const active = ['step-read','step-ai','step-excel'].find(s => document.getElementById(s).classList.contains('active'));
+    if (active) setStep(active, 'error');
+    showError('Errore: ' + e.message);
+  } finally {
+    btnConvert.disabled = false;
+  }
+});
+
+document.getElementById('btn-dl').addEventListener('click', () => {
+  if (!excelBlob) return;
+  const url = URL.createObjectURL(excelBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = selectedFile.name.replace(/\.pdf$/i, '') + '.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Errore lettura file'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function callAPI(base64) {
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: `Sei un esperto di lettura documenti industriali cartacei.
+Ricevi un PDF di un "Programma di Carico" di Serchio Distribuzione SRL.
+Il documento contiene tabelle con dati STAMPATI e valori scritti A PENNA nei campi.
+Devi estrarre TUTTI i dati, inclusi quelli manoscritti.
+
+Restituisci SOLO un oggetto JSON valido, senza markdown, senza backtick, senza spiegazioni. Formato esatto:
+{
+  "ordine": "numero ordine",
+  "cliente": "nome cliente",
+  "codice_cliente": "codice",
+  "localita": "città",
+  "data": "data documento",
+  "deposito": "nome deposito",
+  "prodotti": [
+    {
+      "descrizione": "nome prodotto completo incluse dimensioni",
+      "grammatura": 43,
+      "rot_per_pallet": 2,
+      "rotoli": [
+        { "n_rot": 609, "kg": 497 }
+      ]
+    }
+  ]
+}
+
+Note: "rotoli" contiene ogni riga manoscritta (possono essere più righe per prodotto). Se un valore è illeggibile metti null.`,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+        }, {
+          type: 'text',
+          text: 'Estrai tutti i dati da questo programma di carico e restituisci il JSON.'
+        }]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Errore API (' + response.status + ')');
+  }
+
+  const data = await response.json();
+  const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function buildExcel(d) {
+  const wb = XLSX.utils.book_new();
+  const ws_data = [];
+
+  ws_data.push(['SERCHIO DISTRIBUZIONE SRL']);
+  ws_data.push(['Deposito: ' + (d.deposito||'') + '   |   Data: ' + (d.data||'')]);
+  ws_data.push(['OGGETTO: PROGRAMMA DI CARICO']);
+  ws_data.push(['Destinatario:', d.cliente||'', '', 'Località:', d.localita||'', 'Ordine n.:', d.ordine||'', 'Cod. Cliente:', d.codice_cliente||'']);
+  ws_data.push([]);
+
+  ws_data.push(['Prodotto','GR','Rot/Pallet','N. Rot. (1)','KG (1)','N. Rot. (2)','KG (2)','N. Rot. (3)','KG (3)']);
+
+  const dataStart = ws_data.length + 1;
+  (d.prodotti || []).forEach(p => {
+    const row = [p.descrizione||'', p.grammatura||'', p.rot_per_pallet||''];
+    for (let i = 0; i < 3; i++) {
+      row.push(p.rotoli?.[i]?.n_rot ?? '');
+      row.push(p.rotoli?.[i]?.kg ?? '');
+    }
+    ws_data.push(row);
+  });
+
+  const dataEnd = ws_data.length;
+  ws_data.push([]);
+
+  const totRow = ['TOTALI', '', ''];
+  ['D','E','F','G','H','I'].forEach(col => {
+    totRow.push({ f: `SUM(${col}${dataStart}:${col}${dataEnd})` });
+  });
+  ws_data.push(totRow);
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = [{ wch: 44 },{ wch: 6 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 }];
+  ws['!merges'] = [
+    { s:{r:0,c:0}, e:{r:0,c:8} },
+    { s:{r:1,c:0}, e:{r:1,c:8} },
+    { s:{r:2,c:0}, e:{r:2,c:8} },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Packing List');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+</script>
+</body>
+</html>
