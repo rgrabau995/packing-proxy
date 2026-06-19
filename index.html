@@ -248,7 +248,6 @@ function buildXlsx(d) {
   const GREY_HEAD = 'FF37474F';
   const GREY_LIGHT= 'FFECEFF1';
   const WHITE     = 'FFFFFFFF';
-  const GREEN_DK  = 'FF1B5E20';
 
   const PALLET_COLORS = [
     { hdr: 'FF1565C0', even: 'FFE3F2FD', odd: 'FFBBDEFB' },
@@ -270,9 +269,7 @@ function buildXlsx(d) {
   }
   function addFill(pt, fg=null) {
     const id=nextFillId++;
-    fills.push(fg
-      ? `<fill><patternFill patternType="solid"><fgColor rgb="${fg}"/></patternFill></fill>`
-      : `<fill><patternFill patternType="${pt}"/></fill>`);
+    fills.push(fg ? `<fill><patternFill patternType="solid"><fgColor rgb="${fg}"/></patternFill></fill>` : `<fill><patternFill patternType="${pt}"/></fill>`);
     return id;
   }
   function addBorder(color='FFBDBDBD', style='thin') {
@@ -289,26 +286,21 @@ function buildXlsx(d) {
   addFill('none'); addFill('gray125');
   numFmts.push('<numFmt numFmtId="164" formatCode="#,##0.00"/>');
 
-  const fBase       = addFont({size:10});
-  const fWB11       = addFont({bold:true, color:WHITE, size:11});
-  const fWB22       = addFont({bold:true, color:WHITE, size:22});
-  const fWB9        = addFont({bold:true, color:WHITE, size:9});
-  const fDark10     = addFont({size:10, color:'FF212121'});
-  const fDark9      = addFont({size:9,  color:'FF212121'});
-  const fGreenB11   = addFont({bold:true, color:GREEN_DK, size:11});
-  const fGrey9i     = addFont({size:9,  color:'FF546E7A', italic:true});
-  const fGrey8i     = addFont({size:8,  color:'FF90A4AE', italic:true});
+  const fBase     = addFont({size:10});
+  const fWB11     = addFont({bold:true, color:WHITE, size:11});
+  const fWB22     = addFont({bold:true, color:WHITE, size:22});
+  const fWB9      = addFont({bold:true, color:WHITE, size:9});
+  const fDark10   = addFont({size:10, color:'FF212121'});
+  const fDark9    = addFont({size:9,  color:'FF212121'});
 
-  const flRedDark   = addFill('solid', RED_DARK);
-  const flRedMed    = addFill('solid', RED_MED);
-  const flRedLight  = addFill('solid', RED_LIGHT);
-  const flGreyHead  = addFill('solid', GREY_HEAD);
-  const flGreyLight = addFill('solid', GREY_LIGHT);
-  const flWhite     = addFill('solid', WHITE);
-  const flF9        = addFill('solid', 'FFF9F9F9');
-  const flECEFF1    = addFill('solid', 'FFECEFF1');
-  const flGreenLt   = addFill('solid', 'FFE8F5E9');
-  const fl546       = addFill('solid', 'FF546E7A');
+  const flRedDark  = addFill('solid', RED_DARK);
+  const flRedMed   = addFill('solid', RED_MED);
+  const flRedLight = addFill('solid', RED_LIGHT);
+  const flGreyHead = addFill('solid', GREY_HEAD);
+  const flGreyLight= addFill('solid', GREY_LIGHT);
+  const flWhite    = addFill('solid', WHITE);
+  const flF9       = addFill('solid', 'FFF9F9F9');
+  const fl546      = addFill('solid', 'FF546E7A');
 
   const pFills = PALLET_COLORS.map(p => ({
     hdr:  addFill('solid', p.hdr),
@@ -316,33 +308,61 @@ function buildXlsx(d) {
     odd:  addFill('solid', p.odd),
   }));
 
-  const bThin   = addBorder('FFBDBDBD','thin');
-  const bMed    = addBorder('FF455A64','medium');
-  const bRedMed = addBorder(RED_DARK,  'medium');
+  const bThin   = addBorder('FF9E9E9E', 'thin');
+  const bMed    = addBorder('FF455A64', 'medium');
+  const bRedMed = addBorder(RED_DARK,   'medium');
+  const bPMed   = PALLET_COLORS.map(p => addBorder(p.hdr, 'medium'));
 
-  const xfDef      = addXf(fBase,    flWhite,    bThin, 0, 'general','center');
-  const xfBanner   = addXf(fWB11,    flRedDark,  bThin, 0, 'center', 'center');
-  const xfTitle    = addXf(fWB22,    flRedMed,   bThin, 0, 'center', 'center');
-  const xfLbl      = addXf(fWB9,     flGreyHead, bThin, 0, 'center', 'center');
-  const xfVal      = addXf(fDark10,  flF9,       bThin, 0, 'left',   'center');
-  const xfGrpBase  = addXf(fWB9,     fl546,      bMed,  0, 'center', 'center');
-  const xfColGrey  = addXf(fWB9,     flGreyHead, bMed,  0, 'center', 'center', true);
-  const xfPHdr     = PALLET_COLORS.map((_,i) => addXf(fWB9, pFills[i].hdr, bMed, 0, 'center','center'));
-  const xfProdEven = addXf(fDark9,   flRedLight, bThin, 0, 'left',  'center', true);
-  const xfProdOdd  = addXf(fDark9,   flGreyLight,bThin, 0, 'left',  'center', true);
-  const xfNumEven  = addXf(fBase,    flRedLight, bThin, 0, 'center','center');
-  const xfNumOdd   = addXf(fBase,    flGreyLight,bThin, 0, 'center','center');
+  const xfDef      = addXf(fBase,   flWhite,    bThin, 0, 'general','center');
+  const xfBanner   = addXf(fWB11,   flRedDark,  bThin, 0, 'center', 'center');
+  const xfTitle    = addXf(fWB22,   flRedMed,   bThin, 0, 'center', 'center');
+  const xfLbl      = addXf(fWB9,    flGreyHead, bMed,  0, 'center', 'center');
+  const xfVal      = addXf(fDark10, flF9,       bMed,  0, 'left',   'center');
+  const xfGrpBase  = addXf(fWB9,    fl546,      bMed,  0, 'center', 'center');
+  const xfColGrey  = addXf(fWB9,    flGreyHead, bMed,  0, 'center', 'center', true);
+  const xfPHdr     = PALLET_COLORS.map((_,i) => addXf(fWB9,  pFills[i].hdr, bMed,      0,   'center','center'));
+  const xfProdEven = addXf(fDark9,  flRedLight, bThin, 0, 'left',  'center', true);
+  const xfProdOdd  = addXf(fDark9,  flGreyLight,bThin, 0, 'left',  'center', true);
+  const xfNumEven  = addXf(fBase,   flRedLight, bThin, 0, 'center','center');
+  const xfNumOdd   = addXf(fBase,   flGreyLight,bThin, 0, 'center','center');
   const xfPEven    = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].even, bThin, 0, 'right','center'));
   const xfPOdd     = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].odd,  bThin, 0, 'right','center'));
-  const xfTotLbl   = addXf(fWB11,    flRedDark,  bRedMed, 0, 'center','center');
-  const xfTotPHdr  = PALLET_COLORS.map((_,i) => addXf(fWB11,    pFills[i].hdr, bMed, 0,   'right','center'));
-  const xfTotKG    = PALLET_COLORS.map((_,i) => addXf(fGreenB11, pFills[i].hdr, bMed, 164, 'right','center'));
-  const xfNote1    = addXf(fGrey9i,  flECEFF1,  bThin, 0, 'center','center');
-  const xfNote2    = addXf(fGrey8i,  flWhite,   bThin, 0, 'center','center');
+  const xfTotLbl   = addXf(fWB11,   flRedDark,  bRedMed, 0, 'center','center');
+  const xfTotPHdr  = PALLET_COLORS.map((_,i) => addXf(fWB11, pFills[i].hdr, bPMed[i], 0,   'right','center'));
+  const xfTotKG    = PALLET_COLORS.map((_,i) => addXf(fWB11, pFills[i].hdr, bPMed[i], 164, 'right','center'));
 
-  const DATA_START = 9;
-  const DATA_END   = DATA_START + prodotti.length - 1;
-  const TOT_ROW    = DATA_END + 1;
+  // ── Info block: 4 rows (nome, indirizzo, telefono, email) left
+  //               4 rows (cod.cliente, n.ordine, data ordine, modalita carico) right
+  // We build 4 rows, pairing them up
+  const infoL = [
+    ['Destinatario',  d.destinatario_nome     || ''],
+    ['Indirizzo',     d.destinatario_indirizzo|| ''],
+    ['Telefono',      d.telefono              || ''],
+    ['E-mail',        d.email                 || ''],
+  ];
+  const infoR = [
+    ['Cod. Cliente',     d.cod_cliente      || ''],
+    ['N. Ordine',        d.n_ordine         || ''],
+    ['Data Ordine',      d.data_ordine      || ''],
+    ['Modalità di Carico', d.modalita_carico|| ''],
+  ];
+
+  // DATA_START = row 1(banner)+1(title)+4(info)+1(spacer)+1(grp)+1(hdr)+1 = row 10
+  const HEADER_ROWS = 9; // rows before data
+  const DATA_START  = HEADER_ROWS + 1; // = 10
+
+  // Build product rows with extra blank rows for overflow pallets
+  // Extra rows = Math.floor((rot_pallet - 1) / 5)  [0 extra if ≤5, 1 if 6-10, etc.]
+  const productBlocks = prodotti.map(p => {
+    const rp = parseInt(p.rot_pallet) || 0;
+    const extraRows = Math.max(0, Math.floor((rp - 1) / 5));
+    return { ...p, extraRows };
+  });
+
+  // Total data rows (product rows + their extra rows)
+  const totalDataRows = productBlocks.reduce((s, b) => s + 1 + b.extraRows, 0);
+  const DATA_END = DATA_START + totalDataRows - 1;
+  const TOT_ROW  = DATA_END + 1;
 
   const rows = [];
 
@@ -350,10 +370,9 @@ function buildXlsx(d) {
   rows.push([{s:xfBanner,t:'inlineStr',v:'SERKIOS  |  Serchio Distribuzione S.r.l.  —  Via Luigi Luciani 22, 00197 Roma  |  P.IVA IT05147461007',merge:{c:13}},...Array(12).fill(null)]);
   // Row 2 - Title
   rows.push([{s:xfTitle,t:'inlineStr',v:'PROGRAMMA DI CARICO',merge:{c:13}},...Array(12).fill(null)]);
-  // Rows 3-5 - Info
-  const infoL = [['Destinatario',d.destinatario||''],['Telefono',d.telefono||''],['E-mail',d.email||'']];
-  const infoR = [['Cod. Cliente',d.cod_cliente||''],['N. Ordine',d.n_ordine||''],['Data Ordine',d.data_ordine||'']];
-  for (let i=0;i<3;i++) {
+
+  // Rows 3-6 — Info (4 rows)
+  for (let i=0; i<4; i++) {
     rows.push([
       {s:xfLbl,t:'inlineStr',v:infoL[i][0]},
       {s:xfVal,t:'inlineStr',v:infoL[i][1],merge:{c:7}},...Array(6).fill(null),
@@ -361,31 +380,56 @@ function buildXlsx(d) {
       {s:xfVal,t:'inlineStr',v:infoR[i][1],merge:{c:4}},...Array(3).fill(null),
     ]);
   }
-  // Row 6 - spacer
+
+  // Row 7 - spacer
   rows.push(Array(13).fill({s:xfDef,t:'inlineStr',v:''}));
-  // Row 7 - group headers
-  const grpRow = [{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''}];
-  for (let p=0;p<5;p++) { grpRow.push({s:xfPHdr[p],t:'inlineStr',v:String(p+1),merge:{c:2}}); grpRow.push(null); }
+
+  // Row 8 - pallet group headers
+  const grpRow=[{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''}];
+  for(let p=0;p<5;p++){grpRow.push({s:xfPHdr[p],t:'inlineStr',v:String(p+1),merge:{c:2}});grpRow.push(null);}
   rows.push(grpRow);
-  // Row 8 - col headers
+
+  // Row 9 - col headers
   const chd=['Prodotto','GR/MQ','Rot/Pallet'];
   const chs=[xfColGrey,xfColGrey,xfColGrey];
   for(let p=0;p<5;p++){chd.push('N.Rot.','KG');chs.push(xfPHdr[p],xfPHdr[p]);}
   rows.push(chd.map((h,i)=>({s:chs[i],t:'inlineStr',v:h})));
-  // Product rows
-  for (let i=0;i<prodotti.length;i++) {
-    const p=prodotti[i]; const ev=i%2===0;
+
+  // Product rows + extra blank rows
+  let colorIdx = 0; // track alternating color independently of product index
+  for (let i=0; i<productBlocks.length; i++) {
+    const p = productBlocks[i];
+    const ev = colorIdx % 2 === 0;
+
+    // Main product row
     const row=[
-      {s:ev?xfProdEven:xfProdOdd,t:'inlineStr',v:p.descrizione||''},
-      {s:ev?xfNumEven:xfNumOdd,t:'n',v:p.gr_mq||''},
-      {s:ev?xfNumEven:xfNumOdd,t:'n',v:p.rot_pallet||''},
+      {s:ev?xfProdEven:xfProdOdd, t:'inlineStr', v:p.descrizione||''},
+      {s:ev?xfNumEven:xfNumOdd,   t:'n',         v:p.gr_mq||''},
+      {s:ev?xfNumEven:xfNumOdd,   t:'n',         v:p.rot_pallet||''},
     ];
     for(let pi=0;pi<5;pi++){
       row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
       row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
     }
     rows.push(row);
+    colorIdx++;
+
+    // Extra blank rows (same color as product above)
+    const evExtra = (colorIdx - 1) % 2 === 0;
+    for(let ex=0; ex<p.extraRows; ex++){
+      const exRow=[
+        {s:evExtra?xfProdEven:xfProdOdd,t:'inlineStr',v:''},
+        {s:evExtra?xfNumEven:xfNumOdd,  t:'inlineStr',v:''},
+        {s:evExtra?xfNumEven:xfNumOdd,  t:'inlineStr',v:''},
+      ];
+      for(let pi=0;pi<5;pi++){
+        exRow.push({s:evExtra?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
+        exRow.push({s:evExtra?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
+      }
+      rows.push(exRow);
+    }
   }
+
   // Total row
   const totRow=[{s:xfTotLbl,t:'inlineStr',v:'TOTALI',merge:{c:3}},null,null];
   const kgCols=['E','G','I','K','M'];
@@ -394,22 +438,21 @@ function buildXlsx(d) {
     totRow.push({s:xfTotKG[pi],t:'n',f:`SUM(${kgCols[pi]}${DATA_START}:${kgCols[pi]}${DATA_END})`});
   }
   rows.push(totRow);
-  // Spacer
-  rows.push(Array(13).fill({s:xfDef,t:'inlineStr',v:''}));
-  // Notes
-  rows.push([{s:xfNote1,t:'inlineStr',v:'Tipo Spedizione: VETTORE  |  Porto: ADDEBITATO IN FATTURA  |  Causale: VENDITA PIATTAFORMA',merge:{c:13}},...Array(12).fill(null)]);
-  rows.push([{s:xfNote2,t:'inlineStr',v:'Solo i prodotti identificati come tali nel presente documento sono certificati FSC®.',merge:{c:13}},...Array(12).fill(null)]);
 
+  // ── Render XML ──────────────────────────────────────────────
   function colLetter(n){let s='';while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;}
   function escXml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
   const merges=[];
   let sheetRows='';
-  const rowHeights=[14,40,18,18,18,8,20,28];
+  // row heights index: 0=banner,1=title,2-5=info(4),6=spacer,7=grp,8=hdr, then data rows
+  const fixedHeights=[14,40,18,18,18,18,8,20,28];
   for(let ri=0;ri<rows.length;ri++){
     const rowNum=ri+1;
-    const rn=rowNum;
-    const ht=rowHeights[ri]||(rn>=DATA_START&&rn<=DATA_END?32:rn===TOT_ROW?24:16);
+    let ht;
+    if(ri<fixedHeights.length) ht=fixedHeights[ri];
+    else if(rowNum===TOT_ROW) ht=24;
+    else ht=28;
     let rx=`<row r="${rowNum}" ht="${ht}" customHeight="1">`;
     for(let ci=0;ci<13;ci++){
       const co=rows[ri][ci];
