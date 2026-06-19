@@ -1,471 +1,460 @@
 <!DOCTYPE html>
-<!-- saved from url=(0051)file:///Users/riccardograbau/Downloads/index_2.html -->
-<html lang="it"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="it">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Packing List — PDF → Excel | Serchio Distribuzione</title>
-<script src="./index_files/xlsx.full.min.js"></script>
+<title>Serkios — Programma di Carico</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f5f5f5; color: #212121; min-height: 100vh; }
 
-  :root {
-    --blue: #2F5496;
-    --blue-light: #D9E1F2;
-    --blue-mid: #4472C4;
-    --green: #375623;
-    --green-bg: #E2EFDA;
-    --red: #9C0006;
-    --red-bg: #FFC7CE;
-    --gray: #595959;
-    --gray-light: #F5F5F5;
-    --border: #D0D0D0;
-    --text: #1a1a1a;
-    --text-muted: #666;
-    --radius: 10px;
-    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  .topbar {
+    background: #B71C1C; color: #fff;
+    padding: 14px 24px; font-size: 13px; font-weight: bold;
+    letter-spacing: 0.5px;
   }
+  .topbar span { opacity: 0.75; font-weight: normal; margin-left: 12px; }
 
-  body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #EEF2F8;
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 2rem 1rem;
-    color: var(--text);
-  }
+  .container { max-width: 680px; margin: 48px auto; padding: 0 16px; }
+
+  h1 { font-size: 22px; color: #B71C1C; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #757575; margin-bottom: 32px; }
 
   .card {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    width: 100%;
-    max-width: 620px;
-    overflow: hidden;
+    background: #fff; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 28px;
+    margin-bottom: 20px;
   }
 
-  .card-header {
-    background: var(--blue);
-    padding: 1.5rem 2rem;
-    color: #fff;
+  .drop-zone {
+    border: 2px dashed #BDBDBD; border-radius: 8px;
+    padding: 40px 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: #FAFAFA;
   }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #B71C1C; background: #FFF5F5; }
+  .drop-zone svg { color: #B71C1C; margin-bottom: 12px; }
+  .drop-zone .label { font-size: 15px; font-weight: 600; color: #37474F; margin-bottom: 4px; }
+  .drop-zone .sub { font-size: 12px; color: #9E9E9E; }
+  .drop-zone input { display: none; }
 
-  .card-header .logo {
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    opacity: 0.7;
-    margin-bottom: 4px;
+  .file-selected {
+    display: none; align-items: center; gap: 10px;
+    background: #E8F5E9; border: 1px solid #A5D6A7;
+    border-radius: 6px; padding: 12px 16px; margin-top: 14px;
   }
-
-  .card-header h1 {
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .card-header p {
-    font-size: 13px;
-    opacity: 0.75;
-    margin-top: 4px;
-  }
-
-  .card-body { padding: 1.75rem 2rem; }
-
-  .upload-zone {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.15s;
-    background: var(--gray-light);
-  }
-  .upload-zone:hover, .upload-zone.drag {
-    border-color: var(--blue-mid);
-    background: var(--blue-light);
-  }
-  .upload-zone svg { margin-bottom: 12px; opacity: 0.5; }
-  .upload-zone .label { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-  .upload-zone .sub { font-size: 13px; color: var(--text-muted); }
-  .upload-zone .link { color: var(--blue-mid); text-decoration: underline; cursor: pointer; }
-  #file-input { display: none; }
-
-  .file-pill {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    background: var(--blue-light);
-    border: 1px solid #B8CCE4;
-    border-radius: 8px;
-    padding: 10px 14px;
-    margin-top: 12px;
-    font-size: 13px;
-  }
-  .file-pill svg { flex-shrink: 0; }
-  .file-pill .name { font-weight: 600; color: var(--blue); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .file-pill .size { color: var(--text-muted); flex-shrink: 0; }
+  .file-selected.show { display: flex; }
+  .file-selected .fname { font-size: 13px; font-weight: 600; color: #2E7D32; flex: 1; }
+  .file-selected .remove { font-size: 12px; color: #757575; cursor: pointer; text-decoration: underline; }
 
   .btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    margin-top: 14px;
-    padding: 11px 16px;
-    font-size: 15px;
-    font-weight: 600;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
+    width: 100%; padding: 14px; border: none; border-radius: 6px;
+    font-size: 15px; font-weight: bold; cursor: pointer;
+    transition: background 0.2s; margin-top: 16px;
   }
-  .btn-primary { background: var(--blue); color: #fff; }
-  .btn-primary:hover { background: #253e75; }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn-success { background: #375623; color: #fff; }
-  .btn-success:hover { background: #2a4119; }
+  .btn-primary { background: #B71C1C; color: #fff; }
+  .btn-primary:hover { background: #D32F2F; }
+  .btn-primary:disabled { background: #BDBDBD; cursor: not-allowed; }
 
-  .progress-area { display: none; margin-top: 1.25rem; }
-  .step {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 0;
-    font-size: 13.5px;
-    color: var(--text-muted);
-    border-bottom: 1px solid #F0F0F0;
+  .status {
+    display: none; margin-top: 16px; padding: 12px 16px;
+    border-radius: 6px; font-size: 13px;
   }
-  .step:last-child { border-bottom: none; }
-  .step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .step.active { color: var(--text); font-weight: 600; }
-  .step.active .step-icon svg { animation: spin 1s linear infinite; }
-  .step.done { color: #375623; }
-  .step.error { color: var(--red); }
+  .status.show-loading { display: flex; align-items: center; gap: 10px; background: #E3F2FD; color: #1565C0; }
+  .status.show-error   { display: block; background: #FFEBEE; color: #B71C1C; border: 1px solid #FFCDD2; }
+  .status.show-success { display: flex; align-items: center; gap: 10px; background: #E8F5E9; color: #2E7D32; }
 
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-  .result-box {
-    display: none;
-    margin-top: 1.25rem;
-    padding: 1rem 1.25rem;
-    background: var(--green-bg);
-    border: 1px solid #A9D08E;
-    border-radius: 8px;
+  .spinner {
+    width: 18px; height: 18px; border: 2px solid #BBDEFB;
+    border-top-color: #1565C0; border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
   }
-  .result-box .rtitle {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--green);
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-download {
+    display: none; width: 100%; padding: 14px; border: none;
+    border-radius: 6px; font-size: 15px; font-weight: bold;
+    cursor: pointer; background: #2E7D32; color: #fff;
+    margin-top: 12px; transition: background 0.2s;
   }
+  .btn-download:hover { background: #388E3C; }
+  .btn-download.show { display: block; }
 
-  .error-box {
-    display: none;
-    margin-top: 1rem;
-    padding: 10px 14px;
-    background: var(--red-bg);
-    border: 1px solid #FFA0A0;
-    border-radius: 8px;
-    font-size: 13px;
-    color: var(--red);
-  }
-
-  .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
-
-  .note {
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--gray-light);
-    border-radius: 8px;
-    padding: 10px 14px;
-    line-height: 1.6;
-  }
-  .note strong { color: var(--text); }
-
-  /* Spinner SVG */
-  .ico-spin { display: inline-block; }
+  footer { text-align: center; font-size: 11px; color: #BDBDBD; margin-top: 40px; padding-bottom: 32px; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="card-header">
-    <div class="logo">Serchio Distribuzione SRL</div>
-    <h1>Packing List — PDF → Excel</h1>
-    <p>Carica un programma di carico PDF e ottieni un file Excel strutturato</p>
-  </div>
+<div class="topbar">
+  SERKIOS — Serchio Distribuzione S.r.l.
+  <span>Conferma d'Ordine → Programma di Carico</span>
+</div>
 
-  <div class="card-body">
+<div class="container">
+  <h1>Programma di Carico</h1>
+  <p class="subtitle">Carica una conferma d'ordine in PDF e genera automaticamente l'Excel formattato.</p>
 
-    <div class="upload-zone" id="drop-zone">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2F5496" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+      </svg>
       <div class="label">Trascina il PDF qui</div>
-      <div class="sub">oppure <span class="link" onclick="document.getElementById(&#39;file-input&#39;).click()">clicca per scegliere</span></div>
-    </div>
-    <input type="file" id="file-input" accept="application/pdf">
-
-    <div class="file-pill" id="file-pill">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2F5496" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-      <span class="name" id="file-name"></span>
-      <span class="size" id="file-size"></span>
+      <div class="sub">oppure clicca per selezionare</div>
+      <input type="file" id="fileInput" accept="application/pdf">
     </div>
 
-    <button class="btn btn-primary" id="btn-convert" style="display:none" disabled="">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>
-      Converti in Excel
-    </button>
-
-    <div class="progress-area" id="progress-area">
-      <div class="step" id="step-read">
-        <span class="step-icon" id="ico-read">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>
-        </span>
-        Lettura PDF
-      </div>
-      <div class="step" id="step-ai">
-        <span class="step-icon" id="ico-ai">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>
-        </span>
-        Analisi AI — testo stampato e manoscritto
-      </div>
-      <div class="step" id="step-excel">
-        <span class="step-icon" id="ico-excel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>
-        </span>
-        Generazione file Excel
-      </div>
+    <div class="file-selected" id="fileSelected">
+      <svg width="18" height="18" fill="none" stroke="#2E7D32" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      <span class="fname" id="fileName"></span>
+      <span class="remove" id="removeFile">Rimuovi</span>
     </div>
 
-    <div class="error-box" id="error-box"></div>
+    <button class="btn btn-primary" id="convertBtn" disabled>Genera Excel</button>
 
-    <div class="result-box" id="result-box">
-      <div class="rtitle">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#375623" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Excel generato con successo
-      </div>
-      <button class="btn btn-success" id="btn-dl">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Scarica .xlsx
-      </button>
+    <div class="status" id="statusLoading">
+      <div class="spinner"></div>
+      <span id="statusText">Analisi PDF in corso…</span>
+    </div>
+    <div class="status" id="statusError"></div>
+    <div class="status" id="statusSuccess">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      <span>Excel generato con successo!</span>
     </div>
 
-    <div class="divider"></div>
-
-    <div class="note">
-      <strong>Come funziona:</strong> il PDF viene inviato all'AI che legge sia il testo stampato che i valori scritti a penna (n. rotoli, pesi), poi genera automaticamente un file Excel strutturato con intestazione, prodotti e totali.
-    </div>
-
+    <button class="btn-download" id="downloadBtn">⬇ Scarica Programma di Carico (.xlsx)</button>
   </div>
 </div>
 
+<footer>Serkios · Serchio Distribuzione S.r.l. · Roma</footer>
+
 <script>
-// ⚙️ CONFIGURA QUI il tuo proxy URL dopo il deploy
 const PROXY_URL = 'https://packing-proxy-production.up.railway.app/api/convert';
 
 let selectedFile = null;
-let excelBlob = null;
+let xlsxBlob = null;
+let orderNum = '';
 
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const filePill = document.getElementById('file-pill');
-const btnConvert = document.getElementById('btn-convert');
-const progressArea = document.getElementById('progress-area');
-const resultBox = document.getElementById('result-box');
-const errorBox = document.getElementById('error-box');
+const dropZone    = document.getElementById('dropZone');
+const fileInput   = document.getElementById('fileInput');
+const fileSelected= document.getElementById('fileSelected');
+const fileName    = document.getElementById('fileName');
+const removeFile  = document.getElementById('removeFile');
+const convertBtn  = document.getElementById('convertBtn');
+const statusLoad  = document.getElementById('statusLoading');
+const statusText  = document.getElementById('statusText');
+const statusErr   = document.getElementById('statusError');
+const statusOk    = document.getElementById('statusSuccess');
+const downloadBtn = document.getElementById('downloadBtn');
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
 dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f?.type === 'application/pdf') setFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+removeFile.addEventListener('click', () => {
+  selectedFile = null; fileInput.value = '';
+  fileSelected.classList.remove('show');
+  convertBtn.disabled = true;
+  hideAll();
+});
 
-function handleFile(file) {
-  if (!file || file.type !== 'application/pdf') { showError('Carica un file PDF valido.'); return; }
-  selectedFile = file;
-  document.getElementById('file-name').textContent = file.name;
-  document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
-  filePill.style.display = 'flex';
-  btnConvert.style.display = 'flex';
-  btnConvert.disabled = false;
-  resultBox.style.display = 'none';
-  errorBox.style.display = 'none';
-  excelBlob = null;
+function setFile(f) {
+  selectedFile = f;
+  fileName.textContent = f.name;
+  fileSelected.classList.add('show');
+  convertBtn.disabled = false;
+  hideAll();
+  xlsxBlob = null;
+  downloadBtn.classList.remove('show');
 }
 
-const spinSVG = `<svg class="ico-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
-const doneSVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
-const errSVG  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-const idleSVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
-
-function setStep(id, state) {
-  const el = document.getElementById(id);
-  el.className = 'step ' + state;
-  const ico = document.getElementById('ico-' + id.replace('step-',''));
-  ico.innerHTML = state === 'active' ? spinSVG : state === 'done' ? doneSVG : state === 'error' ? errSVG : idleSVG;
+function hideAll() {
+  statusLoad.className = 'status';
+  statusErr.className  = 'status';
+  statusOk.className   = 'status';
 }
 
-function showError(msg) {
-  errorBox.textContent = msg;
-  errorBox.style.display = 'block';
-}
-
-btnConvert.addEventListener('click', async () => {
+convertBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
-  btnConvert.disabled = true;
-  progressArea.style.display = 'block';
-  resultBox.style.display = 'none';
-  errorBox.style.display = 'none';
-  ['step-read','step-ai','step-excel'].forEach(s => setStep(s, ''));
+  hideAll();
+  downloadBtn.classList.remove('show');
+  convertBtn.disabled = true;
+  statusLoad.className = 'status show-loading';
+  statusText.textContent = 'Analisi PDF in corso…';
 
   try {
-    setStep('step-read', 'active');
-    const base64 = await fileToBase64(selectedFile);
-    setStep('step-read', 'done');
+    const base64 = await toBase64(selectedFile);
+    statusText.textContent = 'Estrazione dati con AI…';
 
-    setStep('step-ai', 'active');
-    const parsed = await callAPI(base64);
-    setStep('step-ai', 'done');
+    const resp = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdfBase64: base64 })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Errore dal server');
 
-    setStep('step-excel', 'active');
-    excelBlob = buildExcel(parsed);
-    setStep('step-excel', 'done');
+    statusText.textContent = 'Generazione Excel…';
+    orderNum = data.n_ordine || 'ordine';
+    xlsxBlob = buildXlsx(data);
 
-    resultBox.style.display = 'block';
-  } catch(e) {
-    const active = ['step-read','step-ai','step-excel'].find(s => document.getElementById(s).classList.contains('active'));
-    if (active) setStep(active, 'error');
-    showError('Errore: ' + e.message);
+    statusLoad.className = 'status';
+    statusOk.className   = 'status show-success';
+    downloadBtn.classList.add('show');
+  } catch (err) {
+    statusLoad.className = 'status';
+    statusErr.textContent = 'Errore: ' + err.message;
+    statusErr.className  = 'status show-error';
   } finally {
-    btnConvert.disabled = false;
+    convertBtn.disabled = false;
   }
 });
 
-document.getElementById('btn-dl').addEventListener('click', () => {
-  if (!excelBlob) return;
-  const url = URL.createObjectURL(excelBlob);
+downloadBtn.addEventListener('click', () => {
+  if (!xlsxBlob) return;
+  const url = URL.createObjectURL(xlsxBlob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = selectedFile.name.replace(/\.pdf$/i, '') + '.xlsx';
+  a.download = `ProgrammaCarico_${orderNum}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 });
 
-function fileToBase64(file) {
+function toBase64(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(r.result.split(',')[1]);
-    r.onerror = () => rej(new Error('Errore lettura file'));
+    r.onerror = () => rej(new Error('Lettura file fallita'));
     r.readAsDataURL(file);
   });
 }
 
-async function callAPI(base64) {
-  const response = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      system: `Sei un esperto di lettura documenti industriali cartacei.
-Ricevi un PDF di un "Programma di Carico" di Serchio Distribuzione SRL.
-Il documento contiene tabelle con dati STAMPATI e valori scritti A PENNA nei campi.
-Devi estrarre TUTTI i dati, inclusi quelli manoscritti.
+// ─── XLSX Builder ────────────────────────────────────────────
+function buildXlsx(d) {
+  const prodotti = d.prodotti || [];
 
-Restituisci SOLO un oggetto JSON valido, senza markdown, senza backtick, senza spiegazioni. Formato esatto:
-{
-  "ordine": "numero ordine",
-  "cliente": "nome cliente",
-  "codice_cliente": "codice",
-  "localita": "città",
-  "data": "data documento",
-  "deposito": "nome deposito",
-  "prodotti": [
-    {
-      "descrizione": "nome prodotto completo incluse dimensioni",
-      "grammatura": 43,
-      "rot_per_pallet": 2,
-      "rotoli": [
-        { "n_rot": 609, "kg": 497 }
-      ]
-    }
-  ]
-}
+  const RED_DARK  = 'FFB71C1C';
+  const RED_MED   = 'FFE53935';
+  const RED_LIGHT = 'FFFFEBEE';
+  const GREY_HEAD = 'FF37474F';
+  const GREY_LIGHT= 'FFECEFF1';
+  const WHITE     = 'FFFFFFFF';
+  const GREEN_DK  = 'FF1B5E20';
 
-Note: "rotoli" contiene ogni riga manoscritta (possono essere più righe per prodotto). Se un valore è illeggibile metti null.`,
-      messages: [{
-        role: 'user',
-        content: [{
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-        }, {
-          type: 'text',
-          text: 'Estrai tutti i dati da questo programma di carico e restituisci il JSON.'
-        }]
-      }]
-    })
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Errore API (' + response.status + ')');
-  }
-
-  const data = await response.json();
-  const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
-}
-
-function buildExcel(d) {
-  const wb = XLSX.utils.book_new();
-  const ws_data = [];
-
-  ws_data.push(['SERCHIO DISTRIBUZIONE SRL']);
-  ws_data.push(['Deposito: ' + (d.deposito||'') + '   |   Data: ' + (d.data||'')]);
-  ws_data.push(['OGGETTO: PROGRAMMA DI CARICO']);
-  ws_data.push(['Destinatario:', d.cliente||'', '', 'Località:', d.localita||'', 'Ordine n.:', d.ordine||'', 'Cod. Cliente:', d.codice_cliente||'']);
-  ws_data.push([]);
-
-  ws_data.push(['Prodotto','GR','Rot/Pallet','N. Rot. (1)','KG (1)','N. Rot. (2)','KG (2)','N. Rot. (3)','KG (3)']);
-
-  const dataStart = ws_data.length + 1;
-  (d.prodotti || []).forEach(p => {
-    const row = [p.descrizione||'', p.grammatura||'', p.rot_per_pallet||''];
-    for (let i = 0; i < 3; i++) {
-      row.push(p.rotoli?.[i]?.n_rot ?? '');
-      row.push(p.rotoli?.[i]?.kg ?? '');
-    }
-    ws_data.push(row);
-  });
-
-  const dataEnd = ws_data.length;
-  ws_data.push([]);
-
-  const totRow = ['TOTALI', '', ''];
-  ['D','E','F','G','H','I'].forEach(col => {
-    totRow.push({ f: `SUM(${col}${dataStart}:${col}${dataEnd})` });
-  });
-  ws_data.push(totRow);
-
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols'] = [{ wch: 44 },{ wch: 6 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 11 }];
-  ws['!merges'] = [
-    { s:{r:0,c:0}, e:{r:0,c:8} },
-    { s:{r:1,c:0}, e:{r:1,c:8} },
-    { s:{r:2,c:0}, e:{r:2,c:8} },
+  const PALLET_COLORS = [
+    { hdr: 'FF1565C0', even: 'FFE3F2FD', odd: 'FFBBDEFB' },
+    { hdr: 'FF6A1B9A', even: 'FFEDE7F6', odd: 'FFD1C4E9' },
+    { hdr: 'FF00695C', even: 'FFE0F2F1', odd: 'FFB2DFDB' },
+    { hdr: 'FFE65100', even: 'FFFFF3E0', odd: 'FFFFE0B2' },
+    { hdr: 'FF558B2F', even: 'FFF1F8E9', odd: 'FFDCEDC8' },
   ];
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Packing List');
-  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const colWidths = [40, 8, 9, 9,11, 9,11, 9,11, 9,11, 9,11];
+
+  let nextFontId=0, nextFillId=0, nextBorderId=0, nextXfId=0;
+  const fonts=[], fills=[], borders=[], cellXfs=[], numFmts=[];
+
+  function addFont({bold=false,color='FF000000',size=10,italic=false}={}) {
+    const id=nextFontId++;
+    fonts.push(`<font><sz val="${size}"/><name val="Arial"/>${bold?'<b/>':''}${italic?'<i/>':''}<color rgb="${color}"/></font>`);
+    return id;
+  }
+  function addFill(pt, fg=null) {
+    const id=nextFillId++;
+    fills.push(fg
+      ? `<fill><patternFill patternType="solid"><fgColor rgb="${fg}"/></patternFill></fill>`
+      : `<fill><patternFill patternType="${pt}"/></fill>`);
+    return id;
+  }
+  function addBorder(color='FFBDBDBD', style='thin') {
+    const id=nextBorderId++;
+    borders.push(`<border><left style="${style}"><color rgb="${color}"/></left><right style="${style}"><color rgb="${color}"/></right><top style="${style}"><color rgb="${color}"/></top><bottom style="${style}"><color rgb="${color}"/></bottom></border>`);
+    return id;
+  }
+  function addXf(fontId, fillId, borderId, numFmtId=0, hAlign='general', vAlign='center', wrap=false) {
+    const id=nextXfId++;
+    cellXfs.push(`<xf numFmtId="${numFmtId}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${hAlign}" vertical="${vAlign}" wrapText="${wrap?1:0}"/></xf>`);
+    return id;
+  }
+
+  addFill('none'); addFill('gray125');
+  numFmts.push('<numFmt numFmtId="164" formatCode="#,##0.00"/>');
+
+  const fBase       = addFont({size:10});
+  const fWB11       = addFont({bold:true, color:WHITE, size:11});
+  const fWB22       = addFont({bold:true, color:WHITE, size:22});
+  const fWB9        = addFont({bold:true, color:WHITE, size:9});
+  const fDark10     = addFont({size:10, color:'FF212121'});
+  const fDark9      = addFont({size:9,  color:'FF212121'});
+  const fGreenB11   = addFont({bold:true, color:GREEN_DK, size:11});
+  const fGrey9i     = addFont({size:9,  color:'FF546E7A', italic:true});
+  const fGrey8i     = addFont({size:8,  color:'FF90A4AE', italic:true});
+
+  const flRedDark   = addFill('solid', RED_DARK);
+  const flRedMed    = addFill('solid', RED_MED);
+  const flRedLight  = addFill('solid', RED_LIGHT);
+  const flGreyHead  = addFill('solid', GREY_HEAD);
+  const flGreyLight = addFill('solid', GREY_LIGHT);
+  const flWhite     = addFill('solid', WHITE);
+  const flF9        = addFill('solid', 'FFF9F9F9');
+  const flECEFF1    = addFill('solid', 'FFECEFF1');
+  const flGreenLt   = addFill('solid', 'FFE8F5E9');
+  const fl546       = addFill('solid', 'FF546E7A');
+
+  const pFills = PALLET_COLORS.map(p => ({
+    hdr:  addFill('solid', p.hdr),
+    even: addFill('solid', p.even),
+    odd:  addFill('solid', p.odd),
+  }));
+
+  const bThin   = addBorder('FFBDBDBD','thin');
+  const bMed    = addBorder('FF455A64','medium');
+  const bRedMed = addBorder(RED_DARK,  'medium');
+
+  const xfDef      = addXf(fBase,    flWhite,    bThin, 0, 'general','center');
+  const xfBanner   = addXf(fWB11,    flRedDark,  bThin, 0, 'center', 'center');
+  const xfTitle    = addXf(fWB22,    flRedMed,   bThin, 0, 'center', 'center');
+  const xfLbl      = addXf(fWB9,     flGreyHead, bThin, 0, 'center', 'center');
+  const xfVal      = addXf(fDark10,  flF9,       bThin, 0, 'left',   'center');
+  const xfGrpBase  = addXf(fWB9,     fl546,      bMed,  0, 'center', 'center');
+  const xfColGrey  = addXf(fWB9,     flGreyHead, bMed,  0, 'center', 'center', true);
+  const xfPHdr     = PALLET_COLORS.map((_,i) => addXf(fWB9, pFills[i].hdr, bMed, 0, 'center','center'));
+  const xfProdEven = addXf(fDark9,   flRedLight, bThin, 0, 'left',  'center', true);
+  const xfProdOdd  = addXf(fDark9,   flGreyLight,bThin, 0, 'left',  'center', true);
+  const xfNumEven  = addXf(fBase,    flRedLight, bThin, 0, 'center','center');
+  const xfNumOdd   = addXf(fBase,    flGreyLight,bThin, 0, 'center','center');
+  const xfPEven    = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].even, bThin, 0, 'right','center'));
+  const xfPOdd     = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].odd,  bThin, 0, 'right','center'));
+  const xfTotLbl   = addXf(fWB11,    flRedDark,  bRedMed, 0, 'center','center');
+  const xfTotPHdr  = PALLET_COLORS.map((_,i) => addXf(fWB11,    pFills[i].hdr, bMed, 0,   'right','center'));
+  const xfTotKG    = PALLET_COLORS.map((_,i) => addXf(fGreenB11, pFills[i].hdr, bMed, 164, 'right','center'));
+  const xfNote1    = addXf(fGrey9i,  flECEFF1,  bThin, 0, 'center','center');
+  const xfNote2    = addXf(fGrey8i,  flWhite,   bThin, 0, 'center','center');
+
+  const DATA_START = 9;
+  const DATA_END   = DATA_START + prodotti.length - 1;
+  const TOT_ROW    = DATA_END + 1;
+
+  const rows = [];
+
+  // Row 1 - Banner
+  rows.push([{s:xfBanner,t:'inlineStr',v:'SERKIOS  |  Serchio Distribuzione S.r.l.  —  Via Luigi Luciani 22, 00197 Roma  |  P.IVA IT05147461007',merge:{c:13}},...Array(12).fill(null)]);
+  // Row 2 - Title
+  rows.push([{s:xfTitle,t:'inlineStr',v:'PROGRAMMA DI CARICO',merge:{c:13}},...Array(12).fill(null)]);
+  // Rows 3-5 - Info
+  const infoL = [['Destinatario',d.destinatario||''],['Telefono',d.telefono||''],['E-mail',d.email||'']];
+  const infoR = [['Cod. Cliente',d.cod_cliente||''],['N. Ordine',d.n_ordine||''],['Data Ordine',d.data_ordine||'']];
+  for (let i=0;i<3;i++) {
+    rows.push([
+      {s:xfLbl,t:'inlineStr',v:infoL[i][0]},
+      {s:xfVal,t:'inlineStr',v:infoL[i][1],merge:{c:7}},...Array(6).fill(null),
+      {s:xfLbl,t:'inlineStr',v:infoR[i][0]},
+      {s:xfVal,t:'inlineStr',v:infoR[i][1],merge:{c:4}},...Array(3).fill(null),
+    ]);
+  }
+  // Row 6 - spacer
+  rows.push(Array(13).fill({s:xfDef,t:'inlineStr',v:''}));
+  // Row 7 - group headers
+  const grpRow = [{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''}];
+  for (let p=0;p<5;p++) { grpRow.push({s:xfPHdr[p],t:'inlineStr',v:String(p+1),merge:{c:2}}); grpRow.push(null); }
+  rows.push(grpRow);
+  // Row 8 - col headers
+  const chd=['Prodotto','GR/MQ','Rot/Pallet'];
+  const chs=[xfColGrey,xfColGrey,xfColGrey];
+  for(let p=0;p<5;p++){chd.push('N.Rot.','KG');chs.push(xfPHdr[p],xfPHdr[p]);}
+  rows.push(chd.map((h,i)=>({s:chs[i],t:'inlineStr',v:h})));
+  // Product rows
+  for (let i=0;i<prodotti.length;i++) {
+    const p=prodotti[i]; const ev=i%2===0;
+    const row=[
+      {s:ev?xfProdEven:xfProdOdd,t:'inlineStr',v:p.descrizione||''},
+      {s:ev?xfNumEven:xfNumOdd,t:'n',v:p.gr_mq||''},
+      {s:ev?xfNumEven:xfNumOdd,t:'n',v:p.rot_pallet||''},
+    ];
+    for(let pi=0;pi<5;pi++){
+      row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
+      row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
+    }
+    rows.push(row);
+  }
+  // Total row
+  const totRow=[{s:xfTotLbl,t:'inlineStr',v:'TOTALI',merge:{c:3}},null,null];
+  const kgCols=['E','G','I','K','M'];
+  for(let pi=0;pi<5;pi++){
+    totRow.push({s:xfTotPHdr[pi],t:'inlineStr',v:''});
+    totRow.push({s:xfTotKG[pi],t:'n',f:`SUM(${kgCols[pi]}${DATA_START}:${kgCols[pi]}${DATA_END})`});
+  }
+  rows.push(totRow);
+  // Spacer
+  rows.push(Array(13).fill({s:xfDef,t:'inlineStr',v:''}));
+  // Notes
+  rows.push([{s:xfNote1,t:'inlineStr',v:'Tipo Spedizione: VETTORE  |  Porto: ADDEBITATO IN FATTURA  |  Causale: VENDITA PIATTAFORMA',merge:{c:13}},...Array(12).fill(null)]);
+  rows.push([{s:xfNote2,t:'inlineStr',v:'Solo i prodotti identificati come tali nel presente documento sono certificati FSC®.',merge:{c:13}},...Array(12).fill(null)]);
+
+  function colLetter(n){let s='';while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;}
+  function escXml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  const merges=[];
+  let sheetRows='';
+  const rowHeights=[14,40,18,18,18,8,20,28];
+  for(let ri=0;ri<rows.length;ri++){
+    const rowNum=ri+1;
+    const rn=rowNum;
+    const ht=rowHeights[ri]||(rn>=DATA_START&&rn<=DATA_END?32:rn===TOT_ROW?24:16);
+    let rx=`<row r="${rowNum}" ht="${ht}" customHeight="1">`;
+    for(let ci=0;ci<13;ci++){
+      const co=rows[ri][ci];
+      if(!co)continue;
+      const addr=`${colLetter(ci+1)}${rowNum}`;
+      if(co.merge)merges.push({s:{r:rowNum,c:ci+1},e:{r:rowNum,c:ci+co.merge.c}});
+      let cx=`<c r="${addr}" s="${co.s}"`;
+      if(co.t==='inlineStr')cx+=` t="inlineStr"><is><t>${escXml(co.v)}</t></is></c>`;
+      else if(co.f)cx+=`><f>${escXml(co.f)}</f></c>`;
+      else if(co.t==='n'&&co.v!=='')cx+=`><v>${co.v}</v></c>`;
+      else cx+='/>';
+      rx+=cx;
+    }
+    sheetRows+=rx+'</row>';
+  }
+
+  const mergesXml=merges.length?'<mergeCells>'+merges.map(m=>`<mergeCell ref="${colLetter(m.s.c)}${m.s.r}:${colLetter(m.e.c)}${m.e.r}"/>`).join('')+'</mergeCells>':'';
+  const colsXml='<cols>'+colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')+'</cols>';
+
+  const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><selection activeCell="A1"/></sheetView></sheetViews>${colsXml}<sheetData>${sheetRows}</sheetData>${mergesXml}<pageSetup orientation="landscape" fitToPage="1" fitToWidth="1"/></worksheet>`;
+  const stylesXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="${numFmts.length}">${numFmts.join('')}</numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${cellXfs.length}">${cellXfs.join('')}</cellXfs></styleSheet>`;
+  const wbXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Programma di Carico" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const ctXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  const rootRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+
+  const files={'[Content_Types].xml':ctXml,'_rels/.rels':rootRels,'xl/workbook.xml':wbXml,'xl/_rels/workbook.xml.rels':wbRels,'xl/styles.xml':stylesXml,'xl/worksheets/sheet1.xml':sheetXml};
+  return zipBlob(files);
 }
+
+function zipBlob(files){
+  const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const[name,content]of Object.entries(files)){
+    const nb=enc.encode(name),db=enc.encode(content),crc=crc32(db);
+    const lh=localHeader(nb,db,crc);
+    parts.push(lh,db);cd.push(centralHeader(nb,db,crc,off));off+=lh.length+db.length;
+  }
+  const cdBytes=concat(cd),eocd=endRecord(Object.keys(files).length,cdBytes.length,off);
+  return new Blob([concat(parts),cdBytes,eocd],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function localHeader(n,d,crc){const b=new ArrayBuffer(30+n.length),v=new DataView(b);v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint32(14,crc,true);v.setUint32(18,d.length,true);v.setUint32(22,d.length,true);v.setUint16(26,n.length,true);new Uint8Array(b).set(n,30);return new Uint8Array(b);}
+function centralHeader(n,d,crc,off){const b=new ArrayBuffer(46+n.length),v=new DataView(b);v.setUint32(0,0x02014b50,true);v.setUint16(4,20,true);v.setUint16(6,20,true);v.setUint32(16,crc,true);v.setUint32(20,d.length,true);v.setUint32(24,d.length,true);v.setUint16(28,n.length,true);v.setUint32(42,off,true);new Uint8Array(b).set(n,46);return new Uint8Array(b);}
+function endRecord(cnt,sz,off){const b=new ArrayBuffer(22),v=new DataView(b);v.setUint32(0,0x06054b50,true);v.setUint16(8,cnt,true);v.setUint16(10,cnt,true);v.setUint32(12,sz,true);v.setUint32(16,off,true);return new Uint8Array(b);}
+function concat(a){const t=a.reduce((s,x)=>s+x.length,0),o=new Uint8Array(t);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
+function crc32(b){let c=0xFFFFFFFF;for(const x of b){c^=x;for(let i=0;i<8;i++)c=(c>>>1)^(c&1?0xEDB88320:0);}return(c^0xFFFFFFFF)>>>0;}
 </script>
-
-
-</body></html>
+</body>
+</html>
