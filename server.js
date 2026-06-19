@@ -36,12 +36,14 @@ app.post('/api/convert', async (req, res) => {
 
 Struttura richiesta:
 {
-  "destinatario": "nome e indirizzo completo del fornitore/destinatario",
+  "destinatario_nome": "solo il nome/ragione sociale del fornitore (es. FLESSOBAGS S.R.L.)",
+  "destinatario_indirizzo": "solo indirizzo, CAP, città e provincia (es. STRADA TUSCANESE N.46 — 01100 VITERBO VT)",
   "telefono": "telefono",
   "email": "email",
   "cod_cliente": "codice cliente (campo CODICE nella testata)",
   "n_ordine": "numero ordine",
   "data_ordine": "data ordine in formato GG/MM/AAAA",
+  "modalita_carico": "prima indicazione che appare dopo le spese di trasporto o dopo l'ultimo prodotto, es. BOBINE SU PALLETS. NON includere le note per il trasportatore (scarico, orari, giorni, ecc.)",
   "prodotti": [
     {
       "descrizione": "descrizione prodotto completa su una riga (includi dimensioni come DIAM e FORO se presenti)",
@@ -55,6 +57,7 @@ Note importanti:
 - rot_pallet = valore nella colonna COLLI del documento
 - gr_mq = valore nella colonna GR/MQ
 - Includi TUTTI i prodotti (escludi le spese di trasporto)
+- modalita_carico: prendi SOLO la prima riga dopo /S004 o dopo l'ultimo prodotto (es. "BOBINE SU PALLETS"), ignora tutto il resto
 - Se un campo non è presente usa null`
             }
           ]
