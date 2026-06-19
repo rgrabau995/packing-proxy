@@ -32,18 +32,18 @@ app.post('/api/convert', async (req, res) => {
             },
             {
               type: 'text',
-              text: `Estrai i dati da questa conferma d'ordine e restituisci SOLO un oggetto JSON valido, senza backtick, senza testo prima o dopo.
+              text: `Estrai i dati da questa conferma d'ordine Serkios e restituisci SOLO un oggetto JSON valido, senza backtick, senza testo prima o dopo.
 
 Struttura richiesta:
 {
-  "destinatario_nome": "solo il nome/ragione sociale del fornitore (es. FLESSOBAGS S.R.L.)",
-  "destinatario_indirizzo": "solo indirizzo, CAP, città e provincia (es. STRADA TUSCANESE N.46 — 01100 VITERBO VT)",
-  "telefono": "telefono",
-  "email": "email",
-  "cod_cliente": "codice cliente (campo CODICE nella testata)",
-  "n_ordine": "numero ordine",
+  "destinatario_nome": "ragione sociale del destinatario/fornitore che appare in alto a destra sotto 'SPETT.LE', es. FLESSOBAGS S.R.L. oppure CARTIERA LOGUDORO S.R.L.",
+  "destinatario_indirizzo": "indirizzo completo del destinatario (riga via/strada + CAP città provincia), es. STRADA TUSCANESE N.46 — 01100 VITERBO VT",
+  "telefono": "numero di telefono nella testata",
+  "email": "indirizzo email nella testata",
+  "cod_cliente": "valore numerico nel campo CODICE in alto a sinistra della tabella testata (es. 447 oppure 218)",
+  "n_ordine": "numero ordine dalla testata (campo NUMERO ORDINE)",
   "data_ordine": "data ordine in formato GG/MM/AAAA",
-  "modalita_carico": "prima indicazione che appare dopo le spese di trasporto o dopo l'ultimo prodotto, es. BOBINE SU PALLETS. NON includere le note per il trasportatore (scarico, orari, giorni, ecc.)",
+  "modalita_carico": "indica come vengono caricate le merci. Cerca una riga che descriva il tipo di imballo/carico, tipicamente nel formato 'BOBINE SU PALLETS' o simile. Questa riga appare DOPO la riga /S004 SPESE DI TRASPORTO o dopo l'ultimo prodotto. NON prendere righe che parlano di orari, giorni, scarico, vettore, porto, fattura. Se non è presente alcuna indicazione di modalità di carico, restituisci null.",
   "prodotti": [
     {
       "descrizione": "descrizione prodotto completa su una riga (includi dimensioni come DIAM e FORO se presenti)",
@@ -53,12 +53,13 @@ Struttura richiesta:
   ]
 }
 
-Note importanti:
-- rot_pallet = valore nella colonna COLLI del documento
-- gr_mq = valore nella colonna GR/MQ
-- Includi TUTTI i prodotti (escludi le spese di trasporto)
-- modalita_carico: prendi SOLO la prima riga dopo /S004 o dopo l'ultimo prodotto (es. "BOBINE SU PALLETS"), ignora tutto il resto
-- Se un campo non è presente usa null`
+Regole importanti:
+- destinatario_nome e destinatario_indirizzo: sono le righe che appaiono in alto a destra dopo "SPETT.LE", NON l'intestazione Serkios in alto a sinistra
+- rot_pallet = valore nella colonna COLLI (numero intero, es. 2, 4, 8)
+- gr_mq = valore nella colonna GR/MQ (numero intero, es. 43, 50)
+- Includi TUTTI i prodotti, escludi le spese di trasporto (/S004)
+- modalita_carico: SOLO una frase che descrive tipo di imballaggio/carico (es. "BOBINE SU PALLETS"). Ignora: "SCARICO SOLO AL MATTINO", "NON SCARICA IL LUNEDI", "VETTORE", "ADDEBITATO IN FATTURA", "VENDITA PIATTAFORMA", "COME SOPRA", date, totali
+- Se un campo non è presente restituisci null`
             }
           ]
         }]
