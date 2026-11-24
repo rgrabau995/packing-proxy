@@ -65,6 +65,7 @@ h1{font-size:28px;letter-spacing:-.02em;line-height:1.2;margin:6px 0 8px}
 .file-selected .remove:hover{background:var(--paper-2);color:var(--ink)}
 
 .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.actions label[hidden]{display:none}
 .actions label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);font-weight:500}
 .actions input{width:150px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;font-size:14px;font-family:inherit;background:#fdfcfa}
 .actions input::placeholder{color:var(--ink-faint);font-size:13px}
@@ -138,7 +139,7 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:1
     </div>
 
     <div class="actions">
-      <label><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Codice di accesso
+      <label id="accessWrap" hidden><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Codice di accesso
         <input type="password" id="access" placeholder="Inserisci il codice" autocomplete="current-password"></label>
       <button class="btn btn-primary" id="convertBtn" disabled>Genera Excel
         <svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
@@ -170,6 +171,12 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:1
 
 <script>
 const PROXY_URL = 'https://packing-proxy-production.up.railway.app/api/convert';
+
+// Mostra il campo "Codice di accesso" solo se il server lo richiede.
+fetch(PROXY_URL.replace('/api/convert', '/api/config'))
+  .then(r => r.json())
+  .then(c => { document.getElementById('accessWrap').hidden = !c.codeRequired; })
+  .catch(() => { document.getElementById('accessWrap').hidden = false; });
 
 let selectedFile = null;
 let xlsxBlob = null;

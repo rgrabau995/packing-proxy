@@ -65,10 +65,11 @@ function describeError(e) {
 
 app.post('/api/convert', async (req, res) => {
   if (!client) return res.status(500).json({ error: 'Configurazione mancante: impostare ANTHROPIC_API_KEY su Railway.' });
-  // Senza ACCESS_CODE il servizio resta chiuso: nessuno può usarlo a vostre spese.
-  if (!process.env.ACCESS_CODE) return res.status(500).json({ error: 'Configurazione mancante: impostare ACCESS_CODE su Railway.' });
   const { pdfBase64, code } = req.body || {};
-  if (!code || !sameCode(code, process.env.ACCESS_CODE)) return res.status(401).json({ error: 'Codice di accesso errato.' });
+  // Codice di accesso facoltativo: viene richiesto solo se ACCESS_CODE è impostato su Railway.
+  if (process.env.ACCESS_CODE && (!code || !sameCode(code, process.env.ACCESS_CODE))) {
+    return res.status(401).json({ error: 'Codice di accesso errato.' });
+  }
   if (!pdfBase64 || typeof pdfBase64 !== 'string') return res.status(400).json({ error: 'Nessun PDF ricevuto.' });
 
   try {
@@ -100,6 +101,9 @@ app.post('/api/convert', async (req, res) => {
 
 // Pagina del tool: servita direttamente da Railway (non serve più GitHub Pages)
 app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+// La pagina chiede qui se mostrare il campo "Codice di accesso".
+app.get('/api/config', (_, res) => res.json({ codeRequired: Boolean(process.env.ACCESS_CODE) }));
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
