@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -84,6 +85,9 @@ Regole importanti:
     res.status(500).json({ error: err.message });
   }
 });
+
+// Pagina del tool: servita direttamente da Railway (non serve più GitHub Pages)
+app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 app.listen(process.env.PORT || 3000, () => console.log('Server avviato'));
