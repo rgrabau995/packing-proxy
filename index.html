@@ -4,115 +4,145 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Serkios — Programma di Carico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #f5f5f5; color: #212121; min-height: 100vh; }
+:root{
+  --ink:#191714; --ink-soft:#5f5a53; --ink-faint:#8d877e;
+  --paper:#f5f2ec; --paper-2:#efebe3; --card:#fff;
+  --red:#c8342a; --red-dark:#a3261d; --red-tint:#fcefed;
+  --ok:#1b7a4c; --ok-bg:#e7f4ec; --ok-line:#a9d8bd;
+  --err:#c3301f; --err-bg:#fcebe8; --err-line:#efb2a9;
+  --info:#2f5d8a; --info-bg:#eaf0f7;
+  --line:#e7e1d7; --line-strong:#d3cabb;
+  --shadow:0 1px 2px rgba(25,23,20,.05),0 10px 30px -14px rgba(25,23,20,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--paper);color:var(--ink);
+  min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
-  .topbar {
-    background: #B71C1C; color: #fff;
-    padding: 14px 24px; font-size: 13px; font-weight: bold;
-    letter-spacing: 0.5px;
-  }
-  .topbar span { opacity: 0.75; font-weight: normal; margin-left: 12px; }
+.topbar{background:#171512;color:#f4efe7}
+.topbar .wrap{max-width:1160px;margin:0 auto;padding:18px 24px;display:flex;align-items:center;gap:14px}
+.mark{width:38px;height:38px;border-radius:10px;background:var(--red);display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;
+  box-shadow:0 6px 18px -6px rgba(200,52,42,.7),inset 0 1px 0 rgba(255,255,255,.25)}
+.brand{font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.brand span{color:#f08a80;font-weight:800;letter-spacing:.04em}
+.brand-sub{font-size:12.5px;color:#a69e92;margin-top:2px}
+.topbar .co{margin-left:auto;font-size:11.5px;color:#8a8378;text-align:right;line-height:1.35}
 
-  .container { max-width: 680px; margin: 48px auto; padding: 0 16px; }
+.container{width:100%;max-width:720px;margin:44px auto 0;padding:0 20px;flex:1}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+h1{font-size:28px;letter-spacing:-.02em;line-height:1.2;margin:6px 0 8px}
+.subtitle{font-size:14.5px;color:var(--ink-soft);margin-bottom:26px;max-width:560px}
 
-  h1 { font-size: 22px; color: #B71C1C; margin-bottom: 6px; }
-  .subtitle { font-size: 13px; color: #757575; margin-bottom: 32px; }
+.steps{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink-faint);background:var(--card);
+  border:1px solid var(--line);padding:6px 12px 6px 6px;border-radius:999px;transition:all .2s}
+.step b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--paper-2);font-size:11.5px;color:var(--ink-soft)}
+.step.active{color:var(--ink);border-color:var(--red)} .step.active b{background:var(--red);color:#fff}
+.step.done{color:var(--ok)} .step.done b{background:var(--ok);color:#fff}
+.steps .sep{align-self:center;width:14px;height:1px;background:var(--line-strong)}
 
-  .card {
-    background: #fff; border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 28px;
-    margin-bottom: 20px;
-  }
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:24px;margin-bottom:20px}
+.drop-zone{border:1.5px dashed var(--line-strong);border-radius:14px;padding:42px 20px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;background:linear-gradient(180deg,#fdfcfa,#faf8f4)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--red);background:var(--red-tint)}
+.drop-zone .ic{width:54px;height:54px;border-radius:15px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;
+  margin:0 auto 14px;color:var(--red);box-shadow:var(--shadow);transition:transform .2s}
+.drop-zone:hover .ic{transform:translateY(-2px)}
+.drop-zone .ic svg.i{width:24px;height:24px}
+.drop-zone .label{font-size:15.5px;font-weight:600;margin-bottom:3px}
+.drop-zone .sub{font-size:13px;color:var(--ink-soft)}
+.drop-zone input{display:none}
 
-  .drop-zone {
-    border: 2px dashed #BDBDBD; border-radius: 8px;
-    padding: 40px 20px; text-align: center; cursor: pointer;
-    transition: all 0.2s; background: #FAFAFA;
-  }
-  .drop-zone:hover, .drop-zone.drag-over { border-color: #B71C1C; background: #FFF5F5; }
-  .drop-zone svg { color: #B71C1C; margin-bottom: 12px; }
-  .drop-zone .label { font-size: 15px; font-weight: 600; color: #37474F; margin-bottom: 4px; }
-  .drop-zone .sub { font-size: 12px; color: #9E9E9E; }
-  .drop-zone input { display: none; }
+.file-selected{display:none;align-items:center;gap:10px;background:#faf8f4;border:1px solid var(--line);border-radius:11px;padding:11px 14px;margin-top:14px}
+.file-selected.show{display:flex;animation:fade .2s ease}
+.file-selected .pdf{font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--red);background:var(--red-tint);padding:3px 6px;border-radius:5px}
+.file-selected .fname{font-size:13.5px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-selected .remove{font-size:12.5px;color:var(--ink-soft);cursor:pointer;font-weight:500;padding:4px 8px;border-radius:7px}
+.file-selected .remove:hover{background:var(--paper-2);color:var(--ink)}
 
-  .file-selected {
-    display: none; align-items: center; gap: 10px;
-    background: #E8F5E9; border: 1px solid #A5D6A7;
-    border-radius: 6px; padding: 12px 16px; margin-top: 14px;
-  }
-  .file-selected.show { display: flex; }
-  .file-selected .fname { font-size: 13px; font-weight: 600; color: #2E7D32; flex: 1; }
-  .file-selected .remove { font-size: 12px; color: #757575; cursor: pointer; text-decoration: underline; }
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.actions label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);font-weight:500}
+.actions input{width:150px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;font-size:14px;font-family:inherit;background:#fdfcfa}
+.actions input::placeholder{color:var(--ink-faint);font-size:13px}
+.actions input:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,52,42,.14)}
+.btn{border:none;border-radius:11px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:12px 20px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .1s,box-shadow .15s}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.btn-primary{background:var(--red);color:#fff;margin-left:auto;box-shadow:0 6px 16px -8px rgba(200,52,42,.8)}
+.btn-primary:hover{background:var(--red-dark)}
+.btn-primary:disabled{background:#dccfca;box-shadow:none;cursor:not-allowed}
 
-  .btn {
-    width: 100%; padding: 14px; border: none; border-radius: 6px;
-    font-size: 15px; font-weight: bold; cursor: pointer;
-    transition: background 0.2s; margin-top: 16px;
-  }
-  .btn-primary { background: #B71C1C; color: #fff; }
-  .btn-primary:hover { background: #D32F2F; }
-  .btn-primary:disabled { background: #BDBDBD; cursor: not-allowed; }
+.status{display:none;margin-top:16px;padding:12px 14px;border-radius:11px;font-size:13.5px;font-weight:500;border:1px solid transparent}
+.status.show-loading{display:flex;align-items:center;gap:10px;background:var(--info-bg);color:var(--info);border-color:#d3deea}
+.status.show-error{display:block;background:var(--err-bg);color:var(--err);border-color:var(--err-line)}
+.status.show-success{display:flex;align-items:center;gap:10px;background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.spinner{width:17px;height:17px;border:2px solid #c9d7e7;border-top-color:var(--info);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
-  .status {
-    display: none; margin-top: 16px; padding: 12px 16px;
-    border-radius: 6px; font-size: 13px;
-  }
-  .status.show-loading { display: flex; align-items: center; gap: 10px; background: #E3F2FD; color: #1565C0; }
-  .status.show-error   { display: block; background: #FFEBEE; color: #B71C1C; border: 1px solid #FFCDD2; }
-  .status.show-success { display: flex; align-items: center; gap: 10px; background: #E8F5E9; color: #2E7D32; }
+.btn-download{display:none;width:100%;margin-top:12px;background:var(--ok);color:#fff;box-shadow:0 6px 16px -8px rgba(27,122,76,.8)}
+.btn-download:hover{background:#166640}
+.btn-download.show{display:flex;animation:fade .25s ease}
 
-  .spinner {
-    width: 18px; height: 18px; border: 2px solid #BBDEFB;
-    border-top-color: #1565C0; border-radius: 50%;
-    animation: spin 0.8s linear infinite; flex-shrink: 0;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .btn-download {
-    display: none; width: 100%; padding: 14px; border: none;
-    border-radius: 6px; font-size: 15px; font-weight: bold;
-    cursor: pointer; background: #2E7D32; color: #fff;
-    margin-top: 12px; transition: background 0.2s;
-  }
-  .btn-download:hover { background: #388E3C; }
-  .btn-download.show { display: block; }
-
-  footer { text-align: center; font-size: 11px; color: #BDBDBD; margin-top: 40px; padding-bottom: 32px; }
+.info{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:34px}
+.info div{background:transparent;border:1px solid var(--line);border-radius:13px;padding:13px 14px;font-size:12.5px;color:var(--ink-soft)}
+.info b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:11.5px;color:var(--ink-faint);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media (max-width:640px){
+  .topbar .co{display:none} .container{margin-top:28px;padding:0 16px} h1{font-size:23px}
+  .card{padding:16px} .info{grid-template-columns:1fr} .btn-primary{margin-left:0;width:100%}
+  .steps .sep{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  SERKIOS — Serchio Distribuzione S.r.l.
-  <span>Conferma d'Ordine → Programma di Carico</span>
-</div>
+<div class="topbar"><div class="wrap">
+  <div class="mark">S</div>
+  <div>
+    <div class="brand"><span>SERKIOS</span> · Programma di Carico</div>
+    <div class="brand-sub">Conferma d'ordine → Excel di carico</div>
+  </div>
+  <div class="co">Serchio Distribuzione S.r.l.<br>Strumenti interni</div>
+</div></div>
 
 <div class="container">
+  <div class="eyebrow">Logistica</div>
   <h1>Programma di Carico</h1>
-  <p class="subtitle">Carica una conferma d'ordine in PDF e genera automaticamente l'Excel formattato.</p>
+  <p class="subtitle">Carica una conferma d'ordine in PDF: il destinatario, i prodotti e i colli per pallet vengono letti in automatico e trasformati nell'Excel di carico già formattato.</p>
+
+  <div class="steps" aria-hidden="true">
+    <div class="step active" id="step1"><b>1</b>Carica il PDF</div><span class="sep"></span>
+    <div class="step" id="step2"><b>2</b>Lettura dati</div><span class="sep"></span>
+    <div class="step" id="step3"><b>3</b>Scarica l'Excel</div>
+  </div>
 
   <div class="card">
     <div class="drop-zone" id="dropZone">
-      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round"
-          d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-      </svg>
-      <div class="label">Trascina il PDF qui</div>
-      <div class="sub">oppure clicca per selezionare</div>
+      <div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></div>
+      <div class="label">Trascina qui la conferma d'ordine</div>
+      <div class="sub">oppure clicca per selezionare il PDF</div>
       <input type="file" id="fileInput" accept="application/pdf">
     </div>
 
     <div class="file-selected" id="fileSelected">
-      <svg width="18" height="18" fill="none" stroke="#2E7D32" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-      </svg>
+      <span class="pdf">PDF</span>
       <span class="fname" id="fileName"></span>
       <span class="remove" id="removeFile">Rimuovi</span>
     </div>
 
-    <button class="btn btn-primary" id="convertBtn" disabled>Genera Excel</button>
+    <div class="actions">
+      <label><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Codice di accesso
+        <input type="password" id="access" placeholder="Inserisci il codice" autocomplete="current-password"></label>
+      <button class="btn btn-primary" id="convertBtn" disabled>Genera Excel
+        <svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+    </div>
 
     <div class="status" id="statusLoading">
       <div class="spinner"></div>
@@ -120,17 +150,23 @@
     </div>
     <div class="status" id="statusError"></div>
     <div class="status" id="statusSuccess">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-      </svg>
-      <span>Excel generato con successo!</span>
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>
+      <span>Excel pronto: controlla i dati e scaricalo.</span>
     </div>
 
-    <button class="btn-download" id="downloadBtn">⬇ Scarica Programma di Carico (.xlsx)</button>
+    <button class="btn btn-download" id="downloadBtn">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>
+      Scarica Programma di Carico (.xlsx)</button>
+  </div>
+
+  <div class="info">
+    <div><b>Cosa viene letto</b>Destinatario, indirizzo, contatti, n. e data ordine, modalità di carico.</div>
+    <div><b>Prodotti</b>Descrizione, grammatura e rotoli per pallet, esclusi i costi di trasporto.</div>
+    <div><b>Excel</b>5 pallet per riga con N. rotoli e KG da compilare, totali automatici.</div>
   </div>
 </div>
 
-<footer>Serkios · Serchio Distribuzione S.r.l. · Roma</footer>
+<footer><span>Serkios · Serchio Distribuzione S.r.l. · Roma</span><span>Lettura documenti con Claude (Anthropic)</span></footer>
 
 <script>
 const PROXY_URL = 'https://packing-proxy-production.up.railway.app/api/convert';
@@ -165,6 +201,7 @@ removeFile.addEventListener('click', () => {
   fileSelected.classList.remove('show');
   convertBtn.disabled = true;
   hideAll();
+  setStep(1);
 });
 
 function setFile(f) {
@@ -175,6 +212,14 @@ function setFile(f) {
   hideAll();
   xlsxBlob = null;
   downloadBtn.classList.remove('show');
+  setStep(1);
+}
+
+function setStep(n) {
+  [1, 2, 3].forEach(i => {
+    const el = document.getElementById('step' + i);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
 }
 
 function hideAll() {
@@ -190,6 +235,7 @@ convertBtn.addEventListener('click', async () => {
   convertBtn.disabled = true;
   statusLoad.className = 'status show-loading';
   statusText.textContent = 'Analisi PDF in corso…';
+  setStep(2);
 
   try {
     const base64 = await toBase64(selectedFile);
@@ -198,7 +244,7 @@ convertBtn.addEventListener('click', async () => {
     const resp = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdfBase64: base64 })
+      body: JSON.stringify({ pdfBase64: base64, code: document.getElementById('access').value.trim() })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Errore dal server');
@@ -210,7 +256,9 @@ convertBtn.addEventListener('click', async () => {
     statusLoad.className = 'status';
     statusOk.className   = 'status show-success';
     downloadBtn.classList.add('show');
+    setStep(3);
   } catch (err) {
+    setStep(1);
     statusLoad.className = 'status';
     statusErr.textContent = 'Errore: ' + err.message;
     statusErr.className  = 'status show-error';

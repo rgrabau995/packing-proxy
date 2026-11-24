@@ -1,88 +1,100 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 
-app.post('/api/convert', async (req, res) => {
-  const { pdfBase64 } = req.body;
-  if (!pdfBase64) return res.status(400).json({ error: 'pdfBase64 mancante' });
+const MODEL = 'claude-sonnet-5-5';
+const MAX_TOKENS = 16000;
+const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'API key non configurata' });
+// Schema JSON: la risposta del modello è sempre valida e completa.
+const str = { anyOf: [{ type: 'string' }, { type: 'null' }] };
+const int = { anyOf: [{ type: 'integer' }, { type: 'null' }] };
+const obj = (props) => ({ type: 'object', properties: props, required: Object.keys(props), additionalProperties: false });
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 }
-            },
-            {
-              type: 'text',
-              text: `Estrai i dati da questa conferma d'ordine Serkios e restituisci SOLO un oggetto JSON valido, senza backtick, senza testo prima o dopo.
+const SCHEMA = obj({
+  destinatario_nome: str,
+  destinatario_indirizzo: str,
+  telefono: str,
+  email: str,
+  cod_cliente: str,
+  n_ordine: str,
+  data_ordine: str,
+  modalita_carico: str,
+  prodotti: {
+    type: 'array',
+    items: obj({ descrizione: str, gr_mq: int, rot_pallet: int }),
+  },
+});
 
-Struttura richiesta:
-{
-  "destinatario_nome": "ragione sociale del destinatario/fornitore che appare in alto a destra sotto 'SPETT.LE', es. FLESSOBAGS S.R.L. oppure CARTIERA LOGUDORO S.R.L.",
-  "destinatario_indirizzo": "indirizzo completo del destinatario (riga via/strada + CAP città provincia), es. STRADA TUSCANESE N.46 — 01100 VITERBO VT",
-  "telefono": "numero di telefono nella testata",
-  "email": "indirizzo email nella testata",
-  "cod_cliente": "valore numerico nel campo CODICE in alto a sinistra della tabella testata (es. 447 oppure 218)",
-  "n_ordine": "numero ordine dalla testata (campo NUMERO ORDINE)",
-  "data_ordine": "data ordine in formato GG/MM/AAAA",
-  "modalita_carico": "indica come vengono caricate le merci. Cerca una riga che descriva il tipo di imballo/carico, tipicamente nel formato 'BOBINE SU PALLETS' o simile. Questa riga appare DOPO la riga /S004 SPESE DI TRASPORTO o dopo l'ultimo prodotto. NON prendere righe che parlano di orari, giorni, scarico, vettore, porto, fattura. Se non è presente alcuna indicazione di modalità di carico, restituisci null.",
-  "prodotti": [
-    {
-      "descrizione": "descrizione prodotto completa su una riga (includi dimensioni come DIAM e FORO se presenti)",
-      "gr_mq": numero intero grammi per mq,
-      "rot_pallet": numero intero colli/rotoli per pallet
-    }
-  ]
+const PROMPT = `Estrai i dati da questa conferma d'ordine Serkios.
+
+Campi:
+- destinatario_nome: ragione sociale del destinatario/fornitore che appare in alto a destra sotto "SPETT.LE" (es. FLESSOBAGS S.R.L. oppure CARTIERA LOGUDORO S.R.L.). NON l'intestazione Serkios in alto a sinistra.
+- destinatario_indirizzo: indirizzo completo del destinatario (via/strada + CAP città provincia), es. "STRADA TUSCANESE N.46 — 01100 VITERBO VT".
+- telefono, email: dalla testata.
+- cod_cliente: valore nel campo CODICE in alto a sinistra della tabella testata (es. "447" oppure "218").
+- n_ordine: campo NUMERO ORDINE della testata.
+- data_ordine: data ordine in formato GG/MM/AAAA.
+- modalita_carico: SOLO una frase che descrive il tipo di imballo/carico, tipicamente "BOBINE SU PALLETS" o simile; di solito appare dopo la riga /S004 SPESE DI TRASPORTO o dopo l'ultimo prodotto. Ignora righe su orari, giorni, scarico, vettore, porto, fattura ("SCARICO SOLO AL MATTINO", "NON SCARICA IL LUNEDI", "VETTORE", "ADDEBITATO IN FATTURA", "VENDITA PIATTAFORMA", "COME SOPRA", date, totali). Se assente: null.
+- prodotti: TUTTI i prodotti, escluse le spese di trasporto (/S004). Per ognuno:
+  - descrizione: descrizione completa su una riga (includi dimensioni come DIAM e FORO se presenti)
+  - gr_mq: valore intero della colonna GR/MQ (es. 43, 50)
+  - rot_pallet: valore intero della colonna COLLI (es. 2, 4, 8)
+
+Se un campo non è presente usa null.`;
+
+function sameCode(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
 }
 
-Regole importanti:
-- destinatario_nome e destinatario_indirizzo: sono le righe che appaiono in alto a destra dopo "SPETT.LE", NON l'intestazione Serkios in alto a sinistra
-- rot_pallet = valore nella colonna COLLI (numero intero, es. 2, 4, 8)
-- gr_mq = valore nella colonna GR/MQ (numero intero, es. 43, 50)
-- Includi TUTTI i prodotti, escludi le spese di trasporto (/S004)
-- modalita_carico: SOLO una frase che descrive tipo di imballaggio/carico (es. "BOBINE SU PALLETS"). Ignora: "SCARICO SOLO AL MATTINO", "NON SCARICA IL LUNEDI", "VETTORE", "ADDEBITATO IN FATTURA", "VENDITA PIATTAFORMA", "COME SOPRA", date, totali
-- Se un campo non è presente restituisci null`
-            }
-          ]
-        }]
-      })
+function describeError(e) {
+  if (e instanceof Anthropic.RateLimitError) return 'troppe richieste in poco tempo, riprova tra un minuto';
+  if (e instanceof Anthropic.AuthenticationError) return 'chiave API Anthropic non valida (controllare ANTHROPIC_API_KEY su Railway)';
+  if (e instanceof Anthropic.BadRequestError) return 'PDF non leggibile o troppo grande (' + e.message + ')';
+  if (e instanceof Anthropic.APIError) return 'servizio AI non disponibile (' + (e.status || 'rete') + '), riprova';
+  return e.message;
+}
+
+app.post('/api/convert', async (req, res) => {
+  if (!client) return res.status(500).json({ error: 'Configurazione mancante: impostare ANTHROPIC_API_KEY su Railway.' });
+  // Senza ACCESS_CODE il servizio resta chiuso: nessuno può usarlo a vostre spese.
+  if (!process.env.ACCESS_CODE) return res.status(500).json({ error: 'Configurazione mancante: impostare ACCESS_CODE su Railway.' });
+  const { pdfBase64, code } = req.body || {};
+  if (!code || !sameCode(code, process.env.ACCESS_CODE)) return res.status(401).json({ error: 'Codice di accesso errato.' });
+  if (!pdfBase64 || typeof pdfBase64 !== 'string') return res.status(400).json({ error: 'Nessun PDF ricevuto.' });
+
+  try {
+    const stream = client.beta.messages.stream({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      betas: ['server-side-fallback-2026-07-01'],
+      // Se il modello rifiuta per errore un documento, la richiesta viene ripetuta su un modello di riserva.
+      fallbacks: 'default',
+      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+          { type: 'text', text: PROMPT },
+        ],
+      }],
     });
-
-    const data = await response.json();
-    if (!response.ok) return res.status(500).json({ error: data.error?.message || 'Errore API' });
-
-    const text = data.content?.[0]?.text || '';
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) return res.status(500).json({ error: 'JSON non trovato nella risposta', raw: text });
-      parsed = JSON.parse(match[0]);
-    }
-
-    res.json(parsed);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const msg = await stream.finalMessage();
+    if (msg.stop_reason === 'refusal') throw new Error('il modello non ha potuto elaborare questo documento');
+    if (msg.stop_reason === 'max_tokens') throw new Error('documento troppo lungo: la risposta è stata troncata');
+    const txt = msg.content.filter(c => c.type === 'text').map(c => c.text).join('');
+    res.json(JSON.parse(txt));
+  } catch (e) {
+    console.error('Estrazione non riuscita:', e);
+    res.status(422).json({ error: 'Estrazione non riuscita: ' + describeError(e) });
   }
 });
 
@@ -90,4 +102,9 @@ Regole importanti:
 app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
-app.listen(process.env.PORT || 3000, () => console.log('Server avviato'));
+
+if (require.main === module) {
+  app.listen(process.env.PORT || 3000, () => console.log('Server avviato'));
+}
+
+module.exports = { app };
