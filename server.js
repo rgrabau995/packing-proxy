@@ -1,4 +1,4 @@
-// Portale Programma di Carico — Serchio Distribuzione / Serkios
+// JARVIS — Portale Programma di Carico, Serchio Distribuzione
 // Logistica (ruolo 'ufficio'): carica conferme d'ordine e spedizioni fornitore, controlla, chiude con il DDT.
 // Magazzino: vede gli ordini da preparare, inserisce i rotoli (online o foto del foglio) e conferma.
 const express = require('express');
@@ -349,7 +349,7 @@ app.post('/api/shipments/read', auth('ufficio'), ah(async (req, res) => {
 app.post('/api/shipments', auth('ufficio'), ah((req, res) => {
   const b = req.body || {};
   const arts = (b.articoli || []).filter(a => a.product_code && (a.rotoli || []).length);
-  if (!arts.length) throw fail(400, 'Nessun articolo abbinato a un codice Serkios.');
+  if (!arts.length) throw fail(400, 'Nessun articolo abbinato a un codice articolo.');
   const out = tx(() => {
     const sh = db.prepare('INSERT INTO shipments (supplier, number, invoice, date, warehouse, file, created_by) VALUES (?,?,?,?,?,?,?)')
       .run(b.fornitore || null, b.numero_spedizione || null, b.numero_fattura || null, itDate(b.data_arrivo) || itDate(b.data_spedizione), b.consegna_presso || null, b.file || null, req.user.n);
