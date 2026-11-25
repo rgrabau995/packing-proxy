@@ -370,6 +370,100 @@ app.get('/api/shipments', auth('ufficio'), (req, res) => {
   res.json(db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM rolls r WHERE r.shipment_id = s.id) AS rotoli FROM shipments s ORDER BY id DESC LIMIT 100`).all());
 });
 
+// ── Giacenze in kg, arrivi dai fornitori, abbinamento codici (pagina Giacenza, solo logistica) ──
+const stock = require('./lib/stock');
+
+app.get('/api/stock', auth('ufficio'), ah((req, res) => res.json(stock.stockView(req.query.date))));
+app.post('/api/stock/import', auth('ufficio'), ah((req, res) => {
+  const f = req.body?.file;
+  if (!f?.data) throw fail(400, 'Nessun file ricevuto.');
+  try { res.json(stock.importLista(Buffer.from(f.data, 'base64'))); }
+  catch (e) { throw e.status ? e : fail(422, 'Excel non leggibile: ' + e.message); }
+}));
+
+// Legge la conferma del fornitore (o il nostro ordine a fornitore) e propone il codice interno per ogni riga.
+app.post('/api/arrivals/read', auth('ufficio'), ah(async (req, res) => {
+  const { file } = req.body || {};
+  checkFile(file, ['application/pdf']);
+  const d = await ai.readSupplierDoc(file);
+  const fname = saveFile(file, 'fornitore');
+  const righe = (d.righe || []).map(r => ({ ...r, match: stock.matchLine(r, d.fornitore) }));
+  const catalogo = db.prepare('SELECT code, family, ptype, gsm, width_mm FROM products WHERE in_list = 1 ORDER BY code').all();
+  const giaCaricati = d.nostro_ordine ? db.prepare(`SELECT COUNT(*) n FROM arrivals WHERE our_order = ? AND status = 'in_arrivo'`).get(String(d.nostro_ordine)).n : 0;
+  res.json({ ...d, righe, file: fname, catalogo, gia_caricati: giaCaricati });
+}));
+
+// Conferma: salva gli abbinamenti e mette le righe "in arrivo" con la data.
+// Se lo stesso nostro ordine era già caricato (es. prima l'ordine 319, poi la conferma Mondi), le righe vengono sostituite.
+app.post('/api/arrivals', auth('ufficio'), ah((req, res) => {
+  const b = req.body || {};
+  const righe = (b.righe || []).filter(r => r.product_code && Number(r.kg) > 0);
+  if (!righe.length) throw fail(400, 'Nessuna riga con codice interno e kg.');
+  const out = tx(() => {
+    let replaced = 0;
+    if (b.nostro_ordine) replaced = db.prepare(`DELETE FROM arrivals WHERE our_order = ? AND status = 'in_arrivo'`).run(String(b.nostro_ordine)).changes;
+    const ins = db.prepare(`INSERT INTO arrivals (product_code, kg, date, date_to, our_order, supplier, supplier_conf, supplier_code, description, source, file)
+      VALUES (?,?,?,?,?,?,?,?,?, 'documento', ?)`);
+    const map = db.prepare(`INSERT INTO supplier_map (supplier_code, product_code, created_at) VALUES (?, ?, datetime('now'))
+      ON CONFLICT(supplier_code) DO UPDATE SET product_code = excluded.product_code`);
+    let saved = 0;
+    for (const r of righe) {
+      const code = String(r.product_code).trim().toUpperCase();
+      db.prepare('INSERT OR IGNORE INTO products (code, description) VALUES (?, ?)').run(code, r.descrizione || null);
+      ins.run(code, Number(r.kg), itDate(r.consegna_dal), itDate(r.consegna_al), b.nostro_ordine || null, b.fornitore || null, b.conferma_fornitore || null,
+        r.codice_cliente || r.codice_fornitore || null, r.descrizione || null, b.file || null);
+      for (const k of [r.codice_cliente, r.codice_fornitore].map(stock.ncode).filter(Boolean)) {
+        if (k === stock.ncode(code)) continue;
+        map.run(k, code); saved++;
+      }
+    }
+    return { righe: righe.length, sostituite: replaced, abbinamenti: saved };
+  })();
+  res.json(out);
+}));
+app.get('/api/arrivals', auth('ufficio'), (req, res) => {
+  res.json(db.prepare(`SELECT a.*, p.family FROM arrivals a LEFT JOIN products p ON p.code = a.product_code
+    ORDER BY a.status = 'arrivato', a.date IS NULL, a.date, a.id LIMIT 500`).all());
+});
+// Merce arrivata: i kg passano dalla colonna "in arrivo" alla giacenza.
+app.post('/api/arrivals/:id/arrived', auth('ufficio'), ah((req, res) => {
+  const a = db.prepare('SELECT * FROM arrivals WHERE id = ?').get(Number(req.params.id));
+  if (!a) throw fail(404, 'Arrivo non trovato.');
+  if (a.status === 'arrivato') throw fail(409, 'Già registrato come arrivato.');
+  tx(() => {
+    db.prepare(`UPDATE arrivals SET status = 'arrivato', arrived_at = datetime('now') WHERE id = ?`).run(a.id);
+    db.prepare('UPDATE products SET stock_kg = COALESCE(stock_kg, 0) + ? WHERE code = ?').run(a.kg, a.product_code);
+  })();
+  res.json({ ok: true });
+}));
+app.patch('/api/arrivals/:id', auth('ufficio'), ah((req, res) => {
+  const b = req.body || {};
+  if ('date' in b) db.prepare('UPDATE arrivals SET date = ? WHERE id = ?').run(/^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : null, Number(req.params.id));
+  if ('kg' in b && Number(b.kg) > 0) db.prepare('UPDATE arrivals SET kg = ? WHERE id = ?').run(Number(b.kg), Number(req.params.id));
+  res.json({ ok: true });
+}));
+app.delete('/api/arrivals/:id', auth('ufficio'), ah((req, res) => {
+  db.prepare(`DELETE FROM arrivals WHERE id = ? AND status = 'in_arrivo'`).run(Number(req.params.id));
+  res.json({ ok: true });
+}));
+
+app.get('/api/mappings', auth('ufficio'), (req, res) => {
+  res.json(db.prepare(`SELECT m.supplier_code, m.product_code, m.created_at, p.family, p.ptype, p.gsm, p.width_mm
+    FROM supplier_map m LEFT JOIN products p ON p.code = m.product_code ORDER BY m.product_code, m.supplier_code`).all());
+});
+app.put('/api/mappings', auth('ufficio'), ah((req, res) => {
+  const k = stock.ncode(req.body?.supplier_code), code = String(req.body?.product_code || '').trim().toUpperCase();
+  if (!k || !code) throw fail(400, 'Servono codice fornitore e codice interno.');
+  if (!db.prepare('SELECT 1 FROM products WHERE code = ?').get(code)) throw fail(400, `Il codice interno ${code} non è in giacenza.`);
+  db.prepare(`INSERT INTO supplier_map (supplier_code, product_code, created_at) VALUES (?, ?, datetime('now'))
+    ON CONFLICT(supplier_code) DO UPDATE SET product_code = excluded.product_code`).run(k, code);
+  res.json({ ok: true });
+}));
+app.delete('/api/mappings/:code', auth('ufficio'), ah((req, res) => {
+  db.prepare('DELETE FROM supplier_map WHERE supplier_code = ?').run(req.params.code);
+  res.json({ ok: true });
+}));
+
 // ── Pagine ──────────────────────────────────────────────────
 app.get('/api/config', (_, res) => res.json({ codeRequired: !DEV_OPEN, ai: ai.aiReady() }));
 app.get('/health', (_, res) => res.json({ status: 'ok' }));

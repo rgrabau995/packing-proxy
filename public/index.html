@@ -67,6 +67,12 @@ h2{font-size:17px;letter-spacing:-.01em;margin-bottom:10px}
 .btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
 .btn-ok:hover{background:#166640}
 .btn-sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 16px;border-bottom:1px solid var(--line)}
+.tabs a{text-decoration:none;font-weight:600;font-size:14px;color:var(--ink-soft);padding:9px 14px;border-radius:9px 9px 0 0;border:1px solid transparent;margin-bottom:-1px}
+.tabs a.on{color:var(--ink);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
+.kchip{display:inline-block;font-size:12px;padding:2px 7px;border-radius:7px;margin:2px 4px 2px 0;background:var(--info-bg);color:var(--info);white-space:nowrap}
+.kchip.late{background:var(--warn-bg);color:var(--warn)} .kchip.out{background:var(--paper-2);color:var(--ink-soft)}
+table.stock tr.fam td{background:var(--paper-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
 .back-link{display:inline-flex;align-items:center;gap:6px;color:#1f5fbf;font-weight:800;font-size:15px;letter-spacing:.02em;text-decoration:none;
   padding:10px 14px;margin:0 0 6px -14px;border-radius:10px}
 .back-link:hover{background:#e8f0fb;text-decoration:underline}
@@ -624,17 +630,182 @@ async function closeOrder(force) {
   }
 }
 
-// ── Magazzino ──────────────────────────────────────────────
-async function renderStock() {
+// ── Giacenza (solo logistica, pagina nascosta: #/magazzino) ─────────────
+const STOCK_TABS = [['giacenze', 'Giacenze'], ['arrivi', 'Arrivi fornitore'], ['abbinamenti', 'Abbinamenti codici'], ['rotoli', 'Rotoli e registri']];
+async function renderStock(tab) {
+  tab = tab || (location.hash.split('/')[2] || 'giacenze');
+  if (!STOCK_TABS.some(([k]) => k === tab)) tab = 'giacenze';
+  $app.innerHTML = `<div class="eyebrow">Logistica</div><h1>Giacenza</h1>
+    <div class="tabs">${STOCK_TABS.map(([k, t]) => `<a href="#/magazzino/${k}" class="${k === tab ? 'on' : ''}">${t}</a>`).join('')}</div>
+    <div id="tabc"><div class="empty">Caricamento…</div></div>`;
+  if (tab === 'giacenze') return renderGiacenze();
+  if (tab === 'arrivi') return renderArrivi();
+  if (tab === 'abbinamenti') return renderAbbinamenti();
+  return renderRotoli();
+}
+const tabc = () => document.getElementById('tabc');
+const kgChip = (kg, date, late, extra) => `<span class="kchip${late ? ' late' : ''}" title="${h(extra || '')}">${fmtKg(kg)}${date ? ' · ' + fmtDate(date) : ''}</span>`;
+
+// Giacenze in kg per codice interno, con arrivi e disponibilità a una data.
+async function renderGiacenze() {
+  const at = store.get('pk_stock_date', '') || new Date().toISOString().slice(0, 10);
+  tabc().innerHTML = `<div class="card">
+      <div class="grid2">
+        <div><h2>Lista Giacenze</h2><div class="drop-zone" id="dzl"><div class="label">Carica l'Excel delle giacenze</div><div class="sub">es. Lista_Giacenze_v5.xlsx — sostituisce giacenze, arrivi e partenze presi dall'Excel</div><input type="file"></div><div id="ls"></div></div>
+        <div><h2>Disponibilità</h2>
+          <label class="f">Disponibile al giorno<input class="t" type="date" id="atd" value="${h(at)}"></label>
+          <p class="muted" style="margin-top:8px">Disponibile = giacenza + merce in arrivo con consegna entro questa data. Gli arrivi con data già passata e non ancora segnati come arrivati sono in arancione.</p>
+          <label class="f" style="margin-top:10px">Cerca<input class="t" id="flt" placeholder="Codice, tipo, fornitore, grammatura…" autocomplete="off"></label>
+        </div>
+      </div></div>
+    <div class="card" style="padding:8px 8px 4px;overflow-x:auto"><div id="gl"><div class="empty">Caricamento…</div></div></div>`;
+  const dz = document.getElementById('dzl'), inp = dz.querySelector('input');
+  inp.accept = '.xlsx';
+  dropZone(dz, '.xlsx', async file => {
+    const ls = document.getElementById('ls');
+    status(ls, 'loading', `Importazione di ${file.name}…`);
+    try {
+      const f = await readFile(file);
+      const r = await api('/api/stock/import', { body: { file: { data: f.data } } });
+      status(ls, 'okk', `${r.articoli} articoli (${r.famiglie.join(', ')}) · ${fmtKg(r.giacenza_kg)} kg in giacenza · ${r.arrivi} arrivi · ${r.partenze} partenze`);
+      draw();
+    } catch (e) { status(ls, 'error', e.message); }
+  });
+  let data = null;
+  const draw = async () => {
+    const d = document.getElementById('atd').value;
+    store.set('pk_stock_date', d);
+    data = await api('/api/stock?date=' + encodeURIComponent(d));
+    table();
+  };
+  const table = () => {
+    const q = document.getElementById('flt').value.trim().toLowerCase();
+    const list = data.products.filter(p => !q || [p.code, p.ptype, p.supplier, p.family, p.gsm && p.gsm + 'g', p.width_mm].join(' ').toLowerCase().includes(q));
+    const gl = document.getElementById('gl');
+    if (!data.products.length) { gl.innerHTML = '<div class="empty">Nessuna giacenza: carica la Lista Giacenze qui sopra.</div>'; return; }
+    let fam = null;
+    gl.innerHTML = `<table class="list stock"><thead><tr><th>Codice</th><th class="hide-m">Tipo</th><th class="hide-m">Fornitore</th><th class="num">Gr</th><th class="num">Alt.</th><th class="num">Giacenza</th><th>In arrivo</th><th class="hide-m">Partenze</th><th class="num">Disp. al ${fmtDate(data.date)}</th></tr></thead><tbody>
+      ${list.map(p => {
+        const head = p.family !== fam ? `<tr class="fam"><td colspan="9">${h(p.family || 'Altri articoli')}</td></tr>` : '';
+        fam = p.family;
+        return head + `<tr><td><b>${h(p.code)}</b>${p.notes ? `<div class="muted" style="font-size:12px">${h(p.notes)}</div>` : ''}</td>
+          <td class="hide-m muted">${h(p.ptype || '')}</td><td class="hide-m muted">${h(p.supplier || '')}</td>
+          <td class="num">${h(p.gsm ?? '')}</td><td class="num">${p.width_mm ? h(p.width_mm) : ''}</td>
+          <td class="num">${fmtKg(p.stock_kg)}</td>
+          <td>${p.arrivals.map(a => kgChip(a.kg, a.date, a.late, [a.our_order && 'ordine ' + a.our_order, a.supplier].filter(Boolean).join(' · '))).join('')}</td>
+          <td class="hide-m">${p.partenze.map(x => `<span class="kchip out" title="${h(x.customer || '')}">${fmtKg(x.kg)}${x.customer ? ' · ' + h(x.customer) : ''}</span>`).join('')}</td>
+          <td class="num"><b>${fmtKg(p.disponibile_kg)}</b></td></tr>`;
+      }).join('')}</tbody></table>`;
+  };
+  document.getElementById('atd').onchange = draw;
+  document.getElementById('flt').oninput = () => data && table();
+  draw();
+}
+
+// Arrivi: conferma del fornitore (o nostro ordine a fornitore) → codici interni abbinati → in arrivo con la data.
+async function renderArrivi() {
+  tabc().innerHTML = `<div class="card"><h2>Carica conferma fornitore</h2>
+      <div class="drop-zone" id="dza"><div class="label">Conferma d'ordine del fornitore o nostro ordine a fornitore (PDF)</div><div class="sub">es. Mondi "Order Confirmation" o "Ordine a fornitore n. 319": i codici vengono abbinati ai nostri in automatico</div><input type="file"></div>
+      <div id="as"></div></div>
+    <div id="arev"></div>
+    <div class="card" style="padding:8px 8px 4px;overflow-x:auto"><h2 style="padding:10px 10px 0">Merce in arrivo</h2><div id="al"><div class="empty">Caricamento…</div></div></div>`;
+  dropZone(document.getElementById('dza'), 'application/pdf', readArrivalDoc);
+  await drawArrivals();
+}
+async function drawArrivals() {
+  const list = await api('/api/arrivals');
+  const al = document.getElementById('al'); if (!al) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (!list.length) { al.innerHTML = '<div class="empty">Nessun arrivo. Carica la Lista Giacenze o una conferma fornitore.</div>'; return; }
+  al.innerHTML = `<table class="list"><thead><tr><th>Consegna</th><th>Codice</th><th class="num">Kg</th><th class="hide-m">Ordine</th><th class="hide-m">Fornitore</th><th>Stato</th><th></th></tr></thead><tbody>
+    ${list.map(a => {
+      const late = a.status === 'in_arrivo' && a.date && a.date < today;
+      return `<tr><td>${a.date ? fmtDate(a.date) : '<span class="muted">—</span>'}${a.date_to ? `<div class="muted" style="font-size:12px">fino al ${fmtDate(a.date_to)}</div>` : ''}</td>
+        <td><b>${h(a.product_code)}</b>${a.supplier_code ? `<div class="muted" style="font-size:12px">${h(a.supplier_code)}</div>` : ''}</td>
+        <td class="num">${fmtKg(a.kg)}</td><td class="hide-m">${h(a.our_order || '')}${a.supplier_conf ? `<div class="muted" style="font-size:12px">conf. ${h(a.supplier_conf)}</div>` : ''}</td>
+        <td class="hide-m muted">${h(a.supplier || '')}${a.source === 'excel' ? ' <span class="muted">(Excel)</span>' : ''}</td>
+        <td>${a.status === 'arrivato' ? `<span class="badge b-chiuso">Arrivato</span>` : late ? `<span class="badge b-da_preparare">Data passata</span>` : `<span class="badge b-preparato">In arrivo</span>`}</td>
+        <td style="white-space:nowrap">${a.status === 'in_arrivo' ? `<button class="btn btn-sm" data-arr="${a.id}">✓ Arrivato</button> <button class="x" data-delarr="${a.id}" title="Elimina arrivo">×</button>` : ''}</td></tr>`;
+    }).join('')}</tbody></table>`;
+  al.querySelectorAll('[data-arr]').forEach(b => b.onclick = async () => {
+    if (!confirm('Segnare come arrivato? I kg passano dalla merce in arrivo alla giacenza.')) return;
+    await api(`/api/arrivals/${b.dataset.arr}/arrived`, { method: 'POST' }); toast('Registrato in giacenza'); drawArrivals();
+  });
+  al.querySelectorAll('[data-delarr]').forEach(b => b.onclick = async () => {
+    if (!confirm('Eliminare questo arrivo?')) return;
+    await api(`/api/arrivals/${b.dataset.delarr}`, { method: 'DELETE' }); drawArrivals();
+  });
+}
+async function readArrivalDoc(file) {
+  const as = document.getElementById('as');
+  status(as, 'loading', `Lettura di "${file.name}"… (circa 30 secondi)`);
+  try {
+    const f = await readFile(file);
+    const d = await api('/api/arrivals/read', { body: { file: f } });
+    status(as, null);
+    const rv = document.getElementById('arev');
+    const isoToIt = s => s || '';
+    rv.innerHTML = `<div class="card"><h2>${h(d.fornitore || 'Fornitore')} · ${d.tipo === 'ordine_a_fornitore' ? 'nostro ordine' : 'conferma'} ${h(d.conferma_fornitore || '')}</h2>
+      <p class="muted" style="margin-bottom:12px">Nostro ordine a fornitore: <b>${h(d.nostro_ordine || '—')}</b> · documento del ${h(d.data_documento || '—')}
+      ${d.gia_caricati ? `<br><b style="color:var(--warn)">Per l'ordine ${h(d.nostro_ordine)} ci sono già ${d.gia_caricati} righe in arrivo: verranno sostituite da queste.</b>` : ''}<br>
+      Controlla il codice interno di ogni riga: le righe senza codice non vengono caricate. Gli abbinamenti confermati vengono ricordati.</p>
+      <datalist id="cat">${d.catalogo.map(c => `<option value="${h(c.code)}">${h([c.ptype, c.gsm && c.gsm + ' g', c.width_mm && c.width_mm + ' mm'].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>
+      <div style="overflow-x:auto"><table class="list"><thead><tr><th>Articolo fornitore</th><th class="num">Kg</th><th>Consegna</th><th>Codice interno</th></tr></thead><tbody>
+      ${d.righe.map((r, i) => `<tr><td><b>${h(r.codice_cliente || r.codice_fornitore || '')}</b>${r.codice_cliente && r.codice_fornitore ? ` <span class="muted">${h(r.codice_fornitore)}</span>` : ''}<div class="muted" style="font-size:12px">${h(r.descrizione || '')}</div></td>
+        <td class="num"><input class="t" data-kg="${i}" value="${h(r.kg ?? '')}" inputmode="decimal" style="width:96px;text-align:right"></td>
+        <td style="white-space:nowrap">${h(isoToIt(r.consegna_dal))}${r.consegna_al ? ' – ' + h(r.consegna_al) : ''}</td>
+        <td><input class="t" list="cat" data-code="${i}" value="${h(r.match.code || '')}" placeholder="scegli il codice" style="min-width:170px">
+          <div class="muted" style="font-size:12px;margin-top:3px">${r.match.code ? (r.match.sure ? '✓ ' : 'proposto: ') + h(r.match.how) : h(r.match.how)}</div>
+          ${!r.match.sure && (r.match.options || []).length > 1 ? `<div>${r.match.options.map(o => `<span class="chip" data-pick="${i}" data-v="${h(o)}">${h(o)}</span>`).join('')}</div>` : ''}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn" id="arx">Annulla</button><button class="btn btn-primary" id="arok">Conferma arrivi</button></div><div id="ars"></div></div>`;
+    rv.querySelectorAll('[data-pick]').forEach(c => c.onclick = () => { rv.querySelector(`[data-code="${c.dataset.pick}"]`).value = c.dataset.v; });
+    document.getElementById('arx').onclick = () => rv.innerHTML = '';
+    document.getElementById('arok').onclick = async () => {
+      d.righe.forEach((r, i) => { r.product_code = rv.querySelector(`[data-code="${i}"]`).value.trim().toUpperCase(); r.kg = Number(String(rv.querySelector(`[data-kg="${i}"]`).value).replace(',', '.')); });
+      try {
+        const r = await api('/api/arrivals', { body: { fornitore: d.fornitore, nostro_ordine: d.nostro_ordine, conferma_fornitore: d.conferma_fornitore, file: d.file, righe: d.righe } });
+        rv.innerHTML = '';
+        status(document.getElementById('as'), 'okk', `Caricate ${r.righe} righe in arrivo${r.sostituite ? ` (sostituite ${r.sostituite} già presenti)` : ''} · ${r.abbinamenti} abbinamenti di codice salvati.`);
+        drawArrivals();
+      } catch (e) { status(document.getElementById('ars'), 'error', e.message); }
+    };
+  } catch (e) { status(as, 'error', e.message); }
+}
+
+// Abbinamenti codice fornitore → codice interno (si creano confermando gli arrivi; qui si correggono).
+async function renderAbbinamenti() {
+  const list = await api('/api/mappings');
+  tabc().innerHTML = `<div class="card"><h2>Nuovo abbinamento</h2>
+      <div class="grid3"><label class="f">Codice fornitore<input class="t" id="msc" placeholder="es. AHG43H55 o MB074-043-0550-0900"></label>
+      <label class="f">Codice interno<input class="t" id="mpc" placeholder="es. KBSSR43SCPH55"></label>
+      <div class="f" style="justify-content:flex-end"><button class="btn btn-primary" id="madd">Salva</button></div></div><div id="ms"></div></div>
+    <div class="card" style="padding:8px 8px 4px">${list.length ? `<table class="list"><thead><tr><th>Codice fornitore</th><th>Codice interno</th><th class="hide-m">Articolo</th><th></th></tr></thead><tbody>
+      ${list.map(m => `<tr><td><b>${h(m.supplier_code)}</b></td><td>${h(m.product_code)}</td><td class="hide-m muted">${h([m.ptype, m.gsm && m.gsm + ' g', m.width_mm && m.width_mm + ' mm'].filter(Boolean).join(' · '))}</td>
+        <td><button class="x" data-delmap="${h(m.supplier_code)}" title="Elimina abbinamento">×</button></td></tr>`).join('')}</tbody></table>`
+      : '<div class="empty">Nessun abbinamento ancora: si creano da soli confermando gli arrivi fornitore.</div>'}</div>`;
+  document.getElementById('madd').onclick = async () => {
+    try {
+      await api('/api/mappings', { method: 'PUT', body: { supplier_code: document.getElementById('msc').value, product_code: document.getElementById('mpc').value } });
+      renderAbbinamenti();
+    } catch (e) { status(document.getElementById('ms'), 'error', e.message); }
+  };
+  tabc().querySelectorAll('[data-delmap]').forEach(b => b.onclick = async () => {
+    if (!confirm(`Eliminare l'abbinamento ${b.dataset.delmap}?`)) return;
+    await api('/api/mappings/' + encodeURIComponent(b.dataset.delmap), { method: 'DELETE' }); renderAbbinamenti();
+  });
+}
+
+// Rotoli con numero (packing list fornitore) e registri Excel per prodotto: la parte già esistente.
+async function renderRotoli() {
   const uff = me.ruolo === 'ufficio';
-  $app.innerHTML = `<div class="eyebrow">Giacenza</div><h1>Giacenza rotoli</h1>
-    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando la logistica chiude un ordine con il DDT. Il registro Excel di ogni prodotto (rotoli usciti e clienti) si scarica già compilato, nello stesso formato di oggi.</p>
+  tabc().innerHTML = `<p class="subtitle">Rotoli con numero e kg dai packing list dei fornitori (es. Mondi): servono a controllare i rotoli scritti dal magazzino. Scendono quando la logistica chiude un ordine con il DDT; il registro Excel di ogni prodotto si scarica già compilato.</p>
     ${uff ? `<div class="grid2">
-      <div class="card"><h2>Arrivo merce</h2><div class="drop-zone" id="dzs"><div class="label">Packing list del fornitore (PDF)</div><div class="sub">i rotoli con n. e kg entrano in giacenza</div><input type="file"></div><div id="ss"></div></div>
+      <div class="card"><h2>Packing list fornitore</h2><div class="drop-zone" id="dzs"><div class="label">Packing list del fornitore (PDF)</div><div class="sub">i rotoli con n. e kg entrano in giacenza</div><input type="file"></div><div id="ss"></div></div>
       <div class="card"><h2>Storico (facoltativo)</h2><div class="drop-zone" id="dzx"><div class="label">Importa un registro Excel già compilato</div><div class="sub">solo se si vuole lo storico uscite passato nel portale. Il nome del file è il codice articolo (es. KBSSR35ADH55.xlsx)</div><input type="file" multiple></div><div id="xs"></div></div>
     </div><div id="review"></div>` : ''}
     <div class="card" style="padding:8px 8px 4px"><div id="pl"><div class="empty">Caricamento…</div></div></div>
-    <div class="card"><h2>Ultimi arrivi</h2><div id="shl" class="muted">…</div></div>`;
+    <div class="card"><h2>Ultimi packing list caricati</h2><div id="shl" class="muted">…</div></div>`;
   if (uff) {
     dropZone(document.getElementById('dzs'), 'application/pdf', readShipment);
     const dzx = document.getElementById('dzx'), inp = dzx.querySelector('input');
@@ -645,13 +816,14 @@ async function renderStock() {
     dzx.ondrop = e => { e.preventDefault(); dzx.classList.remove('drag-over'); importExcel([...e.dataTransfer.files]); };
     inp.onchange = () => { importExcel([...inp.files]); inp.value = ''; };
   }
-  const [prods, shs] = await Promise.all([api('/api/products'), api('/api/shipments')]);
+  const [all, shs] = await Promise.all([api('/api/products'), api('/api/shipments')]);
+  const prods = all.filter(p => p.rotoli || p.uscite);
   const pl = document.getElementById('pl');
   pl.innerHTML = prods.length ? `<table class="list"><thead><tr><th>Codice</th><th>Prodotto</th><th class="num">Rotoli</th><th class="num">Kg</th><th class="num hide-m">Uscite</th></tr></thead><tbody>
     ${prods.map(p => `<tr class="click" data-code="${h(p.code)}"><td><b>${h(p.code)}</b></td><td>${h(p.title || p.description || '')} <span class="muted">${h(p.height || '')}</span></td><td class="num">${p.rotoli}</td><td class="num">${fmtKg(p.kg)}</td><td class="num hide-m muted">${p.uscite}</td></tr>`).join('')}
-    </tbody></table>` : `<div class="empty">Nessun prodotto ancora: carica il packing list di un fornitore in "Arrivo merce".</div>`;
+    </tbody></table>` : `<div class="empty">Nessun rotolo ancora: carica il packing list di un fornitore.</div>`;
   pl.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/prodotto/' + encodeURIComponent(tr.dataset.code));
-  document.getElementById('shl').innerHTML = shs.length ? `<table class="list"><tbody>${shs.map(s => `<tr><td>${fmtDate(s.date)}</td><td>${h(s.supplier || '')}</td><td>Sped. ${h(s.number || '—')}</td><td class="hide-m">Fatt. ${h(s.invoice || '—')}</td><td class="num">${s.rotoli} rotoli</td><td>${s.file ? `<a href="/api/files/${h(s.file)}" target="_blank">PDF</a>` : ''}</td></tr>`).join('')}</tbody></table>` : 'Nessun arrivo caricato.';
+  document.getElementById('shl').innerHTML = shs.length ? `<table class="list"><tbody>${shs.map(s => `<tr><td>${fmtDate(s.date)}</td><td>${h(s.supplier || '')}</td><td>Sped. ${h(s.number || '—')}</td><td class="hide-m">Fatt. ${h(s.invoice || '—')}</td><td class="num">${s.rotoli} rotoli</td><td>${s.file ? `<a href="/api/files/${h(s.file)}" target="_blank">PDF</a>` : ''}</td></tr>`).join('')}</tbody></table>` : 'Nessun packing list caricato.';
 }
 
 async function importExcel(files) {
@@ -667,7 +839,7 @@ async function importExcel(files) {
       out.push(`${r.code}: ${r.giacenza} rotoli in giacenza, ${r.uscite} nello storico`);
     } catch (e) { out.push(`${file.name}: ${e.message}`); }
   }
-  if (out.length) { await renderStock(); status(document.getElementById('xs'), 'okk', out.join(' · ')); }
+  if (out.length) { await renderStock('rotoli'); status(document.getElementById('xs'), 'okk', out.join(' · ')); }
   else status(xs, null);
 }
 
@@ -697,7 +869,7 @@ async function readShipment(file) {
       try {
         const r = await api('/api/shipments', { body: { ...d, prodotti: undefined } });
         rv.innerHTML = '';
-        await renderStock();
+        await renderStock('rotoli');
         status(document.getElementById('ss'), 'okk', `Caricati ${r.added} rotoli in giacenza${r.skipped ? ` (${r.skipped} erano già presenti)` : ''}.`);
       } catch (e) { status(document.getElementById('rvs'), 'error', e.message); }
     };
@@ -707,7 +879,7 @@ async function readShipment(file) {
 async function renderProduct(code) {
   const p = await api('/api/products/' + encodeURIComponent(code));
   const kg = p.stock.reduce((s, r) => s + (r.kg || 0), 0);
-  $app.innerHTML = `<div class="row"><a href="#/magazzino" class="btn btn-link">← Giacenza</a></div>
+  $app.innerHTML = `<div class="row"><a href="#/magazzino/rotoli" class="btn btn-link">← Rotoli e registri</a></div>
     <div class="row" style="align-items:flex-end;margin-bottom:14px"><div><div class="eyebrow">${h(p.code)}${p.supplier_codes.length ? ' · fornitore ' + h(p.supplier_codes.join(', ')) : ''}</div>
     <h1>${h(p.title || p.description || p.code)} <span class="muted" style="font-size:16px">${h(p.height || '')}</span></h1></div>
     <span class="spacer"></span><button class="btn btn-primary" id="exp">⬇ Registro Excel</button></div>
