@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Programma di Carico</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -133,12 +133,17 @@ table.list tr.click:hover td{background:#faf8f4}
 .x:hover{background:var(--paper-2);color:var(--err)}
 .kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;font-size:14px}
 .kv dt{color:var(--ink-faint);font-size:13px}
-.sticky-actions{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(245,242,236,0),var(--paper) 30%);padding:18px 0 14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;z-index:5}
+/* Barra fissa in fondo allo schermo (non "sticky": su Safari iPhone salirebbe a metà pagina quando la barra degli indirizzi si nasconde) */
+.sticky-actions{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--paper);border-top:1px solid var(--line);
+  box-shadow:0 -8px 20px -14px rgba(25,23,20,.35);padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
+.sticky-actions .sa-in{max-width:1060px;margin:0 auto;padding:0 20px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+body.mag .sticky-actions .sa-in{max-width:780px}
+.actions-space{height:calc(80px + env(safe-area-inset-bottom))}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .summary div{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
 .summary b{display:block;font-size:20px;letter-spacing:-.01em}
 .summary span{font-size:12px;color:var(--ink-faint)}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#171512;color:#fff;padding:11px 16px;border-radius:11px;font-size:14px;z-index:100;box-shadow:var(--shadow);max-width:90vw}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#171512;color:#fff;padding:11px 16px;border-radius:11px;font-size:14px;z-index:100;box-shadow:var(--shadow);max-width:90vw}
 .login{max-width:400px;margin:60px auto}
 .empty{padding:26px;text-align:center;color:var(--ink-faint);font-size:14px}
 footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-size:11.5px;color:var(--ink-faint);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -150,6 +155,8 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .lines tr{padding:6px 10px;column-gap:8px}
   .art.uff .lines tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   #dirty{display:none}
+  .sticky-actions .sa-in{padding:0 14px;flex-wrap:nowrap}
+  .sticky-actions .btn{flex:1;padding:12px 10px} .sticky-actions #send{flex:2}
   /* Pulsanti e testi dei riquadri "Foglio da stampare" e "Foglio compilato a penna" centrati */
   .m-center{flex-direction:column;align-items:stretch;text-align:center;gap:12px}
   .m-center .spacer{display:none}
@@ -430,11 +437,11 @@ function drawOrder() {
 
     ${uff ? closeBlock() : ''}
 
-    ${!ro ? `<div class="sticky-actions">
-      <span class="muted" id="dirty" style="align-self:center"></span>
+    ${!ro ? `<div class="actions-space"></div><div class="sticky-actions"><div class="sa-in">
+      <span class="muted" id="dirty"></span>
       <button class="btn" id="save">Salva</button>
       ${!uff ? `<button class="btn btn-ok" id="send">✓ Confermo: preparato</button>` : ''}
-    </div>` : ''}`;
+    </div></div>` : ''}`;
   bindOrder();
 }
 
