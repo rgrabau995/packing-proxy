@@ -15,6 +15,7 @@ const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 // Schema JSON: la risposta del modello è sempre valida e completa.
 const str = { anyOf: [{ type: 'string' }, { type: 'null' }] };
 const int = { anyOf: [{ type: 'integer' }, { type: 'null' }] };
+const num = { anyOf: [{ type: 'number' }, { type: 'null' }] };
 const obj = (props) => ({ type: 'object', properties: props, required: Object.keys(props), additionalProperties: false });
 
 const SCHEMA = obj({
@@ -26,9 +27,10 @@ const SCHEMA = obj({
   n_ordine: str,
   data_ordine: str,
   modalita_carico: str,
+  magazzino_partenza: str,
   prodotti: {
     type: 'array',
-    items: obj({ descrizione: str, gr_mq: int, rot_pallet: int }),
+    items: obj({ descrizione: str, gr_mq: int, colli: int, quantita_kg: num }),
   },
 });
 
@@ -42,10 +44,12 @@ Campi:
 - n_ordine: campo NUMERO ORDINE della testata.
 - data_ordine: data ordine in formato GG/MM/AAAA.
 - modalita_carico: SOLO una frase che descrive il tipo di imballo/carico, tipicamente "BOBINE SU PALLETS" o simile; di solito appare dopo la riga /S004 SPESE DI TRASPORTO o dopo l'ultimo prodotto. Ignora righe su orari, giorni, scarico, vettore, porto, fattura ("SCARICO SOLO AL MATTINO", "NON SCARICA IL LUNEDI", "VETTORE", "ADDEBITATO IN FATTURA", "VENDITA PIATTAFORMA", "COME SOPRA", date, totali). Se assente: null.
+- magazzino_partenza: magazzino o luogo da cui parte/si ritira la merce, SOLO se il documento lo indica esplicitamente (es. "MAGAZZINO DI ...", "RITIRO PRESSO ...", "PARTENZA DA ...", "FRANCO MAGAZZINO ..."), di solito in NOTE o in fondo. NON usare l'indirizzo del destinatario né "DESTINATARIO DELLA MERCE". Se assente: null.
 - prodotti: TUTTI i prodotti, escluse le spese di trasporto (/S004). Per ognuno:
   - descrizione: descrizione completa su una riga (includi dimensioni come DIAM e FORO se presenti)
   - gr_mq: valore intero della colonna GR/MQ (es. 43, 50)
-  - rot_pallet: valore intero della colonna COLLI (es. 2, 4, 8)
+  - colli: valore intero della colonna COLLI, cioè il numero di rotoli/bobine dell'articolo (es. 2, 4, 7)
+  - quantita_kg: valore numerico della colonna QUANTITA' ORDINE (es. "1150,0" → 1150)
 
 Se un campo non è presente usa null.`;
 

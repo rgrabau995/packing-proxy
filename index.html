@@ -64,6 +64,11 @@ h1{font-size:28px;letter-spacing:-.02em;line-height:1.2;margin:6px 0 8px}
 .file-selected .remove{font-size:12.5px;color:var(--ink-soft);cursor:pointer;font-weight:500;padding:4px 8px;border-radius:7px}
 .file-selected .remove:hover{background:var(--paper-2);color:var(--ink)}
 
+.opts{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-top:18px}
+.opt{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink)}
+.opt input{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;font-size:14px;font-family:inherit;background:#fdfcfa;font-weight:400}
+.opt input:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,52,42,.14)}
+.opt small{font-size:12px;font-weight:400;color:var(--ink-faint)}
 .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .actions label[hidden]{display:none}
 .actions label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);font-weight:500}
@@ -96,7 +101,7 @@ h1{font-size:28px;letter-spacing:-.02em;line-height:1.2;margin:6px 0 8px}
 footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:11.5px;color:var(--ink-faint);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 @media (max-width:640px){
   .topbar .co{display:none} .container{margin-top:28px;padding:0 16px} h1{font-size:23px}
-  .card{padding:16px} .info{grid-template-columns:1fr} .btn-primary{margin-left:0;width:100%}
+  .card{padding:16px} .info{grid-template-columns:1fr} .opts{grid-template-columns:1fr} .btn-primary{margin-left:0;width:100%}
   .steps .sep{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -116,7 +121,7 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:1
 <div class="container">
   <div class="eyebrow">Logistica</div>
   <h1>Programma di Carico</h1>
-  <p class="subtitle">Carica una conferma d'ordine in PDF: il destinatario, i prodotti e i colli per pallet vengono letti in automatico e trasformati nell'Excel di carico già formattato.</p>
+  <p class="subtitle">Carica una conferma d'ordine in PDF: il destinatario, i prodotti, i colli e i kg vengono letti in automatico e trasformati nell'Excel di carico, pronto da stampare in bianco e nero.</p>
 
   <div class="steps" aria-hidden="true">
     <div class="step active" id="step1"><b>1</b>Carica il PDF</div><span class="sep"></span>
@@ -136,6 +141,15 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:1
       <span class="pdf">PDF</span>
       <span class="fname" id="fileName"></span>
       <span class="remove" id="removeFile">Rimuovi</span>
+    </div>
+
+    <div class="opts">
+      <label class="opt wide">Magazzino di partenza
+        <input type="text" id="magazzino" placeholder="Nome e città del magazzino" autocomplete="off">
+        <small>Se vuoto si usa quello letto dal PDF, altrimenti resta da compilare a mano.</small></label>
+      <label class="opt">Righe vuote in più per articolo
+        <input type="number" id="extraRows" min="0" max="30" value="2">
+        <small>Oltre ai colli dell'ordine.</small></label>
     </div>
 
     <div class="actions">
@@ -161,9 +175,9 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:0 24px 30px;font-size:1
   </div>
 
   <div class="info">
-    <div><b>Cosa viene letto</b>Destinatario, indirizzo, contatti, n. e data ordine, modalità di carico.</div>
-    <div><b>Prodotti</b>Descrizione, grammatura e rotoli per pallet, esclusi i costi di trasporto.</div>
-    <div><b>Excel</b>5 pallet per riga con N. rotoli e KG da compilare, totali automatici.</div>
+    <div><b>Cosa viene letto</b>Destinatario, indirizzo, contatti, n. e data ordine, modalità di carico, magazzino.</div>
+    <div><b>Prodotti</b>Descrizione, grammatura, colli e kg ordinati, esclusi i costi di trasporto.</div>
+    <div><b>Excel</b>A4 verticale in bianco e nero: un elenco per articolo con pallet, n. rotolo e kg, totali automatici.</div>
   </div>
 </div>
 
@@ -179,7 +193,24 @@ fetch(PROXY_URL.replace('/api/convert', '/api/config'))
   .catch(() => { document.getElementById('accessWrap').hidden = false; });
 
 let selectedFile = null;
-let xlsxBlob = null;
+let lastData = null;
+
+// Magazzino e righe extra: ricordati su questo computer per la prossima volta.
+const magInput = document.getElementById('magazzino');
+const extraInput = document.getElementById('extraRows');
+try {
+  magInput.value = localStorage.getItem('pk_magazzino') || '';
+  const er = localStorage.getItem('pk_extra'); if (er !== null) extraInput.value = er;
+} catch (_) {}
+function saveOpts() {
+  try { localStorage.setItem('pk_magazzino', magInput.value); localStorage.setItem('pk_extra', extraInput.value); } catch (_) {}
+}
+magInput.addEventListener('change', saveOpts);
+extraInput.addEventListener('change', saveOpts);
+function opts() {
+  const n = parseInt(extraInput.value, 10);
+  return { magazzino: magInput.value.trim(), extraRows: Number.isFinite(n) ? Math.min(30, Math.max(0, n)) : 2 };
+}
 let orderNum = '';
 
 const dropZone    = document.getElementById('dropZone');
@@ -217,7 +248,7 @@ function setFile(f) {
   fileSelected.classList.add('show');
   convertBtn.disabled = false;
   hideAll();
-  xlsxBlob = null;
+  lastData = null;
   downloadBtn.classList.remove('show');
   setStep(1);
 }
@@ -258,7 +289,8 @@ convertBtn.addEventListener('click', async () => {
 
     statusText.textContent = 'Generazione Excel…';
     orderNum = data.n_ordine || 'ordine';
-    xlsxBlob = buildXlsx(data);
+    buildXlsx(data, opts()); // verifica che il file si generi
+    lastData = data;
 
     statusLoad.className = 'status';
     statusOk.className   = 'status show-success';
@@ -275,8 +307,10 @@ convertBtn.addEventListener('click', async () => {
 });
 
 downloadBtn.addEventListener('click', () => {
-  if (!xlsxBlob) return;
-  const url = URL.createObjectURL(xlsxBlob);
+  if (!lastData) return;
+  saveOpts();
+  // Il file si genera al momento: magazzino e righe extra si possono cambiare anche dopo la lettura.
+  const url = URL.createObjectURL(buildXlsx(lastData, opts()));
   const a = document.createElement('a');
   a.href = url;
   a.download = `ProgrammaCarico_${orderNum}.xlsx`;
@@ -294,247 +328,236 @@ function toBase64(file) {
 }
 
 // ─── XLSX Builder ────────────────────────────────────────────
-function buildXlsx(d) {
-  const prodotti = d.prodotti || [];
+// Pensato per la stampa: A4 verticale, solo nero e grigio chiaro (stampanti in bianco e nero).
+// Ogni articolo è un blocco a sé, sviluppato in verticale: una riga per rotolo.
+// Le righe di ogni articolo sono una Tabella Excel: inserendo righe si mantengono bordi e formato,
+// e i totali si aggiornano. La colonna "N. Rotolo" è in formato Testo, così gli zeri iniziali restano.
+// Un articolo non viene mai spezzato tra due pagine (salvo che da solo non stia in una pagina).
+function buildXlsx(d, o = {}) {
+  const extra = Number.isFinite(o.extraRows) ? o.extraRows : 2;
+  const magazzino = o.magazzino || d.magazzino_partenza || '';
+  let prodotti = (d.prodotti || []).filter(p => p && (p.descrizione || p.colli));
+  if (!prodotti.length) prodotti = [{ descrizione: '', gr_mq: null, colli: null, quantita_kg: null }];
 
-  const RED_DARK  = 'FFB71C1C';
-  const RED_MED   = 'FFE53935';
-  const RED_LIGHT = 'FFFFEBEE';
-  const GREY_HEAD = 'FF37474F';
-  const GREY_LIGHT= 'FFECEFF1';
-  const WHITE     = 'FFFFFFFF';
-
-  const PALLET_COLORS = [
-    { hdr: 'FF1565C0', even: 'FFE3F2FD', odd: 'FFBBDEFB' },
-    { hdr: 'FF6A1B9A', even: 'FFEDE7F6', odd: 'FFD1C4E9' },
-    { hdr: 'FF00695C', even: 'FFE0F2F1', odd: 'FFB2DFDB' },
-    { hdr: 'FFE65100', even: 'FFFFF3E0', odd: 'FFFFE0B2' },
-    { hdr: 'FF558B2F', even: 'FFF1F8E9', odd: 'FFDCEDC8' },
+  // ── Stili (nessun colore) ──
+  const fonts = [
+    '<font><sz val="10"/><name val="Arial"/></font>',
+    '<font><b/><sz val="16"/><name val="Arial"/></font>',
+    '<font><b/><sz val="10"/><name val="Arial"/></font>',
+    '<font><b/><sz val="11"/><name val="Arial"/></font>',
+    '<font><sz val="11"/><name val="Arial"/></font>',
+    '<font><sz val="8"/><name val="Arial"/></font>',
+    '<font><b/><sz val="12"/><name val="Arial"/></font>',
   ];
-
-  const colWidths = [40, 8, 9, 9,11, 9,11, 9,11, 9,11, 9,11];
-
-  let nextFontId=0, nextFillId=0, nextBorderId=0, nextXfId=0;
-  const fonts=[], fills=[], borders=[], cellXfs=[], numFmts=[];
-
-  function addFont({bold=false,color='FF000000',size=10,italic=false}={}) {
-    const id=nextFontId++;
-    fonts.push(`<font><sz val="${size}"/><name val="Arial"/>${bold?'<b/>':''}${italic?'<i/>':''}<color rgb="${color}"/></font>`);
-    return id;
-  }
-  function addFill(pt, fg=null) {
-    const id=nextFillId++;
-    fills.push(fg ? `<fill><patternFill patternType="solid"><fgColor rgb="${fg}"/></patternFill></fill>` : `<fill><patternFill patternType="${pt}"/></fill>`);
-    return id;
-  }
-  function addBorder(color='FFBDBDBD', style='thin') {
-    const id=nextBorderId++;
-    borders.push(`<border><left style="${style}"><color rgb="${color}"/></left><right style="${style}"><color rgb="${color}"/></right><top style="${style}"><color rgb="${color}"/></top><bottom style="${style}"><color rgb="${color}"/></bottom></border>`);
-    return id;
-  }
-  function addXf(fontId, fillId, borderId, numFmtId=0, hAlign='general', vAlign='center', wrap=false) {
-    const id=nextXfId++;
-    cellXfs.push(`<xf numFmtId="${numFmtId}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${hAlign}" vertical="${vAlign}" wrapText="${wrap?1:0}"/></xf>`);
-    return id;
-  }
-
-  addFill('none'); addFill('gray125');
-  numFmts.push('<numFmt numFmtId="164" formatCode="#,##0.00"/>');
-
-  const fBase     = addFont({size:10});
-  const fWB11     = addFont({bold:true, color:WHITE, size:11});
-  const fWB22     = addFont({bold:true, color:WHITE, size:22});
-  const fWB9      = addFont({bold:true, color:WHITE, size:9});
-  const fDark10   = addFont({size:10, color:'FF212121'});
-  const fDark9    = addFont({size:9,  color:'FF212121'});
-
-  const flRedDark  = addFill('solid', RED_DARK);
-  const flRedMed   = addFill('solid', RED_MED);
-  const flRedLight = addFill('solid', RED_LIGHT);
-  const flGreyHead = addFill('solid', GREY_HEAD);
-  const flGreyLight= addFill('solid', GREY_LIGHT);
-  const flWhite    = addFill('solid', WHITE);
-  const flF9       = addFill('solid', 'FFF9F9F9');
-  const fl546      = addFill('solid', 'FF546E7A');
-
-  const pFills = PALLET_COLORS.map(p => ({
-    hdr:  addFill('solid', p.hdr),
-    even: addFill('solid', p.even),
-    odd:  addFill('solid', p.odd),
-  }));
-
-  const bThin   = addBorder('FF9E9E9E', 'thin');
-  const bMed    = addBorder('FF455A64', 'medium');
-  const bRedMed = addBorder(RED_DARK,   'medium');
-  const bPMed   = PALLET_COLORS.map(p => addBorder(p.hdr, 'medium'));
-
-  const xfDef      = addXf(fBase,   flWhite,    bThin, 0, 'general','center');
-  const xfBanner   = addXf(fWB11,   flRedDark,  bThin, 0, 'center', 'center');
-  const xfTitle    = addXf(fWB22,   flRedMed,   bThin, 0, 'center', 'center');
-  const xfLbl      = addXf(fWB9,    flGreyHead, bMed,  0, 'center', 'center');
-  const xfVal      = addXf(fDark10, flF9,       bMed,  0, 'left',   'center');
-  const xfGrpBase  = addXf(fWB9,    fl546,      bMed,  0, 'center', 'center');
-  const xfColGrey  = addXf(fWB9,    flGreyHead, bMed,  0, 'center', 'center', true);
-  const xfPHdr     = PALLET_COLORS.map((_,i) => addXf(fWB9,  pFills[i].hdr, bMed,      0,   'center','center'));
-  const xfProdEven = addXf(fDark9,  flRedLight, bThin, 0, 'left',  'center', true);
-  const xfProdOdd  = addXf(fDark9,  flGreyLight,bThin, 0, 'left',  'center', true);
-  const xfNumEven  = addXf(fBase,   flRedLight, bThin, 0, 'center','center');
-  const xfNumOdd   = addXf(fBase,   flGreyLight,bThin, 0, 'center','center');
-  const xfPEven    = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].even, bThin, 0, 'right','center'));
-  const xfPOdd     = PALLET_COLORS.map((_,i) => addXf(fBase, pFills[i].odd,  bThin, 0, 'right','center'));
-  const xfTotLbl   = addXf(fWB11,   flRedDark,  bRedMed, 0, 'center','center');
-  const xfTotPHdr  = PALLET_COLORS.map((_,i) => addXf(fWB11, pFills[i].hdr, bPMed[i], 0,   'right','center'));
-  const xfTotKG    = PALLET_COLORS.map((_,i) => addXf(fWB11, pFills[i].hdr, bPMed[i], 164, 'right','center'));
-
-  // ── Info block: 4 rows (nome, indirizzo, telefono, email) left
-  //               4 rows (cod.cliente, n.ordine, data ordine, modalita carico) right
-  // We build 4 rows, pairing them up
-  const infoL = [
-    ['Destinatario',  d.destinatario_nome     || ''],
-    ['Indirizzo',     d.destinatario_indirizzo|| ''],
-    ['Telefono',      d.telefono              || ''],
-    ['E-mail',        d.email                 || ''],
+  const fills = [
+    '<fill><patternFill patternType="none"/></fill>',
+    '<fill><patternFill patternType="gray125"/></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>',
   ];
-  const infoR = [
-    ['Cod. Cliente',     d.cod_cliente      || ''],
-    ['N. Ordine',        d.n_ordine         || ''],
-    ['Data Ordine',      d.data_ordine      || ''],
-    ['Modalità di Carico', d.modalita_carico|| ''],
+  const all = st => ['left', 'right', 'top', 'bottom'].map(k => `<${k} style="${st}"><color rgb="FF000000"/></${k}>`).join('');
+  const borders = [
+    '<border><left/><right/><top/><bottom/><diagonal/></border>',
+    `<border>${all('thin')}<diagonal/></border>`,
+    `<border>${all('medium')}<diagonal/></border>`,
+    '<border><left/><right/><top/><bottom style="medium"><color rgb="FF000000"/></bottom><diagonal/></border>',
   ];
+  // I totali a zero restano vuoti: sul foglio stampato si scrivono a mano.
+  const numFmts = ['<numFmt numFmtId="164" formatCode="0&quot; rotoli&quot;;-0;&quot;&quot;"/>',
+    '<numFmt numFmtId="165" formatCode="General;-General;&quot;&quot;"/>'];
+  const xfs = [];
+  const X = (font, fill, border, h, { num = 0, wrap = false } = {}) => {
+    xfs.push(`<xf numFmtId="${num}" fontId="${font}" fillId="${fill}" borderId="${border}" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${h}" vertical="center"${wrap ? ' wrapText="1"' : ''}/></xf>`);
+    return xfs.length - 1;
+  };
+  const S = {
+    def: X(0, 0, 0, 'general'),
+    title: X(1, 0, 3, 'left'),
+    titleR: X(6, 0, 3, 'right'),
+    co: X(5, 0, 0, 'left'),
+    lbl: X(2, 3, 1, 'left', { wrap: true }),
+    val: X(4, 0, 1, 'left', { wrap: true }),
+    valB: X(3, 0, 1, 'left', { wrap: true }),
+    art: X(3, 2, 2, 'left', { wrap: true }),
+    meta: X(0, 0, 1, 'left'),
+    th: X(2, 3, 1, 'center'),
+    cTxt: X(4, 0, 1, 'center', { num: 49 }),   // 49 = formato Testo
+    cKg: X(4, 0, 1, 'right'),
+    cNote: X(4, 0, 1, 'left', { wrap: true }),
+    totL: X(2, 0, 2, 'left'),
+    totN: X(2, 0, 2, 'center', { num: 164 }),
+    totKg: X(2, 0, 2, 'right', { num: 165 }),
+    gL: X(3, 2, 2, 'left'),
+    gN: X(6, 2, 2, 'center', { num: 164 }),
+    gKg: X(6, 2, 2, 'right', { num: 165 }),
+    gMeta: X(0, 2, 2, 'left', { wrap: true }),
+  };
 
-  // DATA_START = row 1(banner)+1(title)+4(info)+1(spacer)+1(grp)+1(hdr)+1 = row 10
-  const HEADER_ROWS = 9; // rows before data
-  const DATA_START  = HEADER_ROWS + 1; // = 10
+  // ── Colonne: A Pallet | B N. Rotolo | C KG | D Note  (larghezza totale ≈ 17 cm, sta in A4 al 100%)
+  const W = [16, 24, 14, 34];
+  const TOTAL_W = W.reduce((a, b) => a + b, 0);
+  const lines = (text, width, k = 0.95) => Math.max(1, Math.ceil(String(text || '').length / Math.max(1, Math.floor(width * k))));
 
-  // Build product rows with extra blank rows for overflow pallets
-  // Extra rows = Math.floor((rot_pallet - 1) / 5)  [0 extra if ≤5, 1 if 6-10, etc.]
-  const productBlocks = prodotti.map(p => {
-    const rp = parseInt(p.rot_pallet) || 0;
-    const extraRows = Math.max(0, Math.floor((rp - 1) / 5));
-    return { ...p, extraRows };
+  const rows = [];      // { ht, cells: {colIdx: {s, v, t}} }
+  const merges = [];
+  const breaks = [];
+  const tables = [];
+  const PAGE_H = 745;
+  const ROW_H = 19;     // riga da compilare (anche a penna)   // punti utili per pagina A4 con questi margini
+  let used = 0;
+
+  const addRow = (ht, cells = {}) => { rows.push({ ht, cells }); used += ht; return rows.length; };
+  const s = (v, st) => ({ t: 's', v: v == null ? '' : String(v), s: st });
+  const n = (v, st) => ({ t: 'n', v, s: st });
+  const f = (v, st) => ({ t: 'f', v, s: st });
+  const e = st => ({ t: 'e', s: st });
+  const merge = (r, c1, c2) => merges.push(`${'ABCD'[c1]}${r}:${'ABCD'[c2]}${r}`);
+  const fmtKg = v => (v == null || v === '') ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 2 });
+
+  // ── Testata ordine
+  let r = addRow(26, { 0: s('PROGRAMMA DI CARICO', S.title), 1: e(S.title), 2: e(S.title),
+    3: s(d.n_ordine ? `Ordine n. ${d.n_ordine}` : '', S.titleR) });
+  merge(r, 0, 2);
+  r = addRow(14, { 0: s('Serkios · Serchio Distribuzione S.r.l. — Via Luigi Luciani 22, 00197 Roma · P.IVA IT05147461007', S.co), 1: e(S.co), 2: e(S.co), 3: e(S.co) });
+  merge(r, 0, 3);
+  addRow(6);
+
+  const wide = (label, value, st = S.val, minH = 18) => {
+    const ht = Math.max(minH, lines(value, W[1] + W[2] + W[3]) * 14 + 4);
+    const rr = addRow(ht, { 0: s(label, S.lbl), 1: s(value, st), 2: e(st), 3: e(st) });
+    merge(rr, 1, 3);
+  };
+  const pair = (l1, v1, l2, v2, st1 = S.val) => {
+    const ht = Math.max(18, lines(v1, W[1]) * 14 + 4, lines(v2, W[3]) * 14 + 4);
+    addRow(ht, { 0: s(l1, S.lbl), 1: s(v1, st1), 2: s(l2, S.lbl), 3: s(v2, S.val) });
+  };
+  wide('Destinatario', d.destinatario_nome, S.valB);
+  wide('Indirizzo', d.destinatario_indirizzo);
+  pair('Telefono', d.telefono, 'E-mail', d.email);
+  pair('N. ordine', d.n_ordine, 'Data ordine', d.data_ordine, S.valB);
+  pair('Cod. cliente', d.cod_cliente, 'Modalità carico', d.modalita_carico);
+  wide('Magazzino di partenza', magazzino, S.valB, 26);
+  addRow(10);
+
+  // ── Un blocco per articolo
+  const totRefs = [];
+  const nArt = prodotti.length;
+  let kgOrdinati = 0, kgNoti = true;
+  prodotti.forEach((p, i) => {
+    const colli = parseInt(p.colli, 10) || 0;
+    const nRows = Math.max(1, colli + extra);
+    const titolo = `ARTICOLO ${i + 1} di ${nArt}  —  ${p.descrizione || ''}`;
+    const titleH = Math.max(20, lines(titolo, TOTAL_W, 0.85) * 15 + 5);
+    const blockH = titleH + 15 + 16 + nRows * ROW_H + 18;
+    if (used + blockH > PAGE_H && used > 60) { breaks.push(rows.length); used = 0; }
+
+    let rr = addRow(titleH, { 0: s(titolo, S.art), 1: e(S.art), 2: e(S.art), 3: e(S.art) });
+    merge(rr, 0, 3);
+    const meta = [
+      p.gr_mq != null ? `GR/MQ ${p.gr_mq}` : '',
+      colli ? `Colli ${colli}` : '',
+      p.quantita_kg != null ? `KG ordinati ${fmtKg(p.quantita_kg)}` : '',
+    ].filter(Boolean).join('     ·     ');
+    if (p.quantita_kg != null) kgOrdinati += Number(p.quantita_kg) || 0; else kgNoti = false;
+    rr = addRow(15, { 0: s(meta, S.meta), 1: e(S.meta), 2: e(S.meta), 3: e(S.meta) });
+    merge(rr, 0, 3);
+
+    const name = `Articolo${i + 1}`;
+    const hdr = addRow(16, { 0: s('Pallet', S.th), 1: s('N. Rotolo', S.th), 2: s('KG', S.th), 3: s('Note', S.th) });
+    for (let k = 0; k < nRows; k++) addRow(ROW_H, { 0: e(S.cTxt), 1: e(S.cTxt), 2: e(S.cKg), 3: e(S.cNote) });
+    const tot = addRow(18, { 0: s('Totale', S.totL), 1: f(`SUBTOTAL(103,${name}[N. Rotolo])`, S.totN),
+      2: f(`SUBTOTAL(109,${name}[KG])`, S.totKg), 3: e(S.totKg) });
+    tables.push({ name, ref: `A${hdr}:D${tot}` });
+    totRefs.push(tot);
+    addRow(8);
   });
 
-  // Total data rows (product rows + their extra rows)
-  const totalDataRows = productBlocks.reduce((s, b) => s + 1 + b.extraRows, 0);
-  const DATA_END = DATA_START + totalDataRows - 1;
-  const TOT_ROW  = DATA_END + 1;
+  // ── Totale ordine
+  if (used + 26 > PAGE_H) { breaks.push(rows.length); used = 0; }
+  const gMeta = kgNoti ? `KG ordinati ${fmtKg(kgOrdinati)}` : '';
+  addRow(26, { 0: s('TOTALE ORDINE', S.gL), 1: f(`SUM(${totRefs.map(t => 'B' + t).join(',')})`, S.gN),
+    2: f(`SUM(${totRefs.map(t => 'C' + t).join(',')})`, S.gKg), 3: s(gMeta, S.gMeta) });
 
-  const rows = [];
+  // ── Stringhe condivise
+  const sst = [], sstIdx = new Map();
+  const si = v => { if (!sstIdx.has(v)) { sstIdx.set(v, sst.length); sst.push(v); } return sstIdx.get(v); };
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  // Row 1 - Banner
-  rows.push([{s:xfBanner,t:'inlineStr',v:'SERKIOS  |  Serchio Distribuzione S.r.l.  —  Via Luigi Luciani 22, 00197 Roma  |  P.IVA IT05147461007',merge:{c:13}},...Array(12).fill(null)]);
-  // Row 2 - Title
-  rows.push([{s:xfTitle,t:'inlineStr',v:'PROGRAMMA DI CARICO',merge:{c:13}},...Array(12).fill(null)]);
-
-  // Rows 3-6 — Info (4 rows)
-  for (let i=0; i<4; i++) {
-    rows.push([
-      {s:xfLbl,t:'inlineStr',v:infoL[i][0]},
-      {s:xfVal,t:'inlineStr',v:infoL[i][1],merge:{c:7}},...Array(6).fill(null),
-      {s:xfLbl,t:'inlineStr',v:infoR[i][0]},
-      {s:xfVal,t:'inlineStr',v:infoR[i][1],merge:{c:4}},...Array(3).fill(null),
-    ]);
-  }
-
-  // Row 7 - spacer
-  rows.push(Array(13).fill({s:xfDef,t:'inlineStr',v:''}));
-
-  // Row 8 - pallet group headers
-  const grpRow=[{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''},{s:xfGrpBase,t:'inlineStr',v:''}];
-  for(let p=0;p<5;p++){grpRow.push({s:xfPHdr[p],t:'inlineStr',v:String(p+1),merge:{c:2}});grpRow.push(null);}
-  rows.push(grpRow);
-
-  // Row 9 - col headers
-  const chd=['Prodotto','GR/MQ','Rot/Pallet'];
-  const chs=[xfColGrey,xfColGrey,xfColGrey];
-  for(let p=0;p<5;p++){chd.push('N.Rot.','KG');chs.push(xfPHdr[p],xfPHdr[p]);}
-  rows.push(chd.map((h,i)=>({s:chs[i],t:'inlineStr',v:h})));
-
-  // Product rows + extra blank rows
-  let colorIdx = 0; // track alternating color independently of product index
-  for (let i=0; i<productBlocks.length; i++) {
-    const p = productBlocks[i];
-    const ev = colorIdx % 2 === 0;
-
-    // Main product row
-    const row=[
-      {s:ev?xfProdEven:xfProdOdd, t:'inlineStr', v:p.descrizione||''},
-      {s:ev?xfNumEven:xfNumOdd,   t:'n',         v:p.gr_mq||''},
-      {s:ev?xfNumEven:xfNumOdd,   t:'n',         v:p.rot_pallet||''},
-    ];
-    for(let pi=0;pi<5;pi++){
-      row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
-      row.push({s:ev?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
+  let sheetRows = '';
+  rows.forEach((row, ri) => {
+    const rn = ri + 1;
+    let x = `<row r="${rn}" ht="${row.ht}" customHeight="1">`;
+    for (let c = 0; c < 4; c++) {
+      const cell = row.cells[c];
+      if (!cell) continue;
+      const ref = 'ABCD'[c] + rn;
+      if (cell.t === 's' && cell.v !== '') x += `<c r="${ref}" s="${cell.s}" t="s"><v>${si(cell.v)}</v></c>`;
+      else if (cell.t === 'n') x += `<c r="${ref}" s="${cell.s}"><v>${cell.v}</v></c>`;
+      else if (cell.t === 'f') x += `<c r="${ref}" s="${cell.s}"><f>${esc(cell.v)}</f></c>`;
+      else x += `<c r="${ref}" s="${cell.s}"/>`;
     }
-    rows.push(row);
-    colorIdx++;
+    sheetRows += x + '</row>';
+  });
 
-    // Extra blank rows (same color as product above)
-    const evExtra = (colorIdx - 1) % 2 === 0;
-    for(let ex=0; ex<p.extraRows; ex++){
-      const exRow=[
-        {s:evExtra?xfProdEven:xfProdOdd,t:'inlineStr',v:''},
-        {s:evExtra?xfNumEven:xfNumOdd,  t:'inlineStr',v:''},
-        {s:evExtra?xfNumEven:xfNumOdd,  t:'inlineStr',v:''},
-      ];
-      for(let pi=0;pi<5;pi++){
-        exRow.push({s:evExtra?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
-        exRow.push({s:evExtra?xfPEven[pi]:xfPOdd[pi],t:'inlineStr',v:''});
-      }
-      rows.push(exRow);
-    }
-  }
+  const footer = `&L&8Programma di carico — Ordine n. ${(d.n_ordine || '').replace(/&/g, '&&')} — ${(d.destinatario_nome || '').replace(/&/g, '&&')}&R&8Pagina &P di &N`;
+  const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}>`
 
-  // Total row
-  const totRow=[{s:xfTotLbl,t:'inlineStr',v:'TOTALI',merge:{c:3}},null,null];
-  const kgCols=['E','G','I','K','M'];
-  for(let pi=0;pi<5;pi++){
-    totRow.push({s:xfTotPHdr[pi],t:'inlineStr',v:''});
-    totRow.push({s:xfTotKG[pi],t:'n',f:`SUM(${kgCols[pi]}${DATA_START}:${kgCols[pi]}${DATA_END})`});
-  }
-  rows.push(totRow);
+    + `<sheetViews><sheetView workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>`
+    + `<sheetFormatPr defaultRowHeight="15"/>`
+    + `<cols>${W.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+    + `<sheetData>${sheetRows}</sheetData>`
+    + `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>`
+    + `<printOptions horizontalCentered="1"/>`
+    + `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.6" header="0.2" footer="0.25"/>`
+    + `<pageSetup paperSize="9" orientation="portrait" scale="100"/>`
+    + `<headerFooter><oddFooter>${esc(footer)}</oddFooter></headerFooter>`
+    + (breaks.length ? `<rowBreaks count="${breaks.length}" manualBreakCount="${breaks.length}">${breaks.map(b => `<brk id="${b}" max="16383" man="1"/>`).join('')}</rowBreaks>` : '')
+    + `<ignoredErrors><ignoredError sqref="A1:B${rows.length + 500}" numberStoredAsText="1"/></ignoredErrors>`
+    + `<tableParts count="${tables.length}">${tables.map((_, i) => `<tablePart r:id="rId${i + 1}"/>`).join('')}</tableParts>`
+    + `</worksheet>`;
 
-  // ── Render XML ──────────────────────────────────────────────
-  function colLetter(n){let s='';while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;}
-  function escXml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  const tableXml = (t, i) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${i + 1}" name="${t.name}" displayName="${t.name}" ref="${t.ref}" totalsRowCount="1">`
+    + `<tableColumns count="4">`
+    + `<tableColumn id="1" name="Pallet" totalsRowLabel="Totale"/>`
+    + `<tableColumn id="2" name="N. Rotolo" totalsRowFunction="count"/>`
+    + `<tableColumn id="3" name="KG" totalsRowFunction="sum"/>`
+    + `<tableColumn id="4" name="Note"/>`
+    + `</tableColumns><tableStyleInfo name="TableStyleLight1" showFirstColumn="0" showLastColumn="0" showRowStripes="0" showColumnStripes="0"/></table>`;
 
-  const merges=[];
-  let sheetRows='';
-  // row heights index: 0=banner,1=title,2-5=info(4),6=spacer,7=grp,8=hdr, then data rows
-  const fixedHeights=[14,40,18,18,18,18,8,20,28];
-  for(let ri=0;ri<rows.length;ri++){
-    const rowNum=ri+1;
-    let ht;
-    if(ri<fixedHeights.length) ht=fixedHeights[ri];
-    else if(rowNum===TOT_ROW) ht=24;
-    else ht=28;
-    let rx=`<row r="${rowNum}" ht="${ht}" customHeight="1">`;
-    for(let ci=0;ci<13;ci++){
-      const co=rows[ri][ci];
-      if(!co)continue;
-      const addr=`${colLetter(ci+1)}${rowNum}`;
-      if(co.merge)merges.push({s:{r:rowNum,c:ci+1},e:{r:rowNum,c:ci+co.merge.c}});
-      let cx=`<c r="${addr}" s="${co.s}"`;
-      if(co.t==='inlineStr')cx+=` t="inlineStr"><is><t>${escXml(co.v)}</t></is></c>`;
-      else if(co.f)cx+=`><f>${escXml(co.f)}</f></c>`;
-      else if(co.t==='n'&&co.v!=='')cx+=`><v>${co.v}</v></c>`;
-      else cx+='/>';
-      rx+=cx;
-    }
-    sheetRows+=rx+'</row>';
-  }
+  const sstXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sst.length}" uniqueCount="${sst.length}">${sst.map(v => `<si><t xml:space="preserve">${esc(v)}</t></si>`).join('')}</sst>`;
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+    + `<numFmts count="${numFmts.length}">${numFmts.join('')}</numFmts>`
+    + `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>`
+    + `<borders count="${borders.length}">${borders.join('')}</borders>`
+    + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+    + `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>`
+    + `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets><sheet name="Programma di Carico" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`;
+  const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const rels = items => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.map(([id, type, target]) => `<Relationship Id="${id}" Type="${REL}/${type}" Target="${target}"/>`).join('')}</Relationships>`;
+  const CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml';
+  const ctXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
+    + `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>`
+    + `<Override PartName="/xl/workbook.xml" ContentType="${CT}.sheet.main+xml"/>`
+    + `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="${CT}.worksheet+xml"/>`
+    + `<Override PartName="/xl/styles.xml" ContentType="${CT}.styles+xml"/>`
+    + `<Override PartName="/xl/sharedStrings.xml" ContentType="${CT}.sharedStrings+xml"/>`
+    + tables.map((_, i) => `<Override PartName="/xl/tables/table${i + 1}.xml" ContentType="${CT}.table+xml"/>`).join('')
+    + `</Types>`;
 
-  const mergesXml=merges.length?'<mergeCells>'+merges.map(m=>`<mergeCell ref="${colLetter(m.s.c)}${m.s.r}:${colLetter(m.e.c)}${m.e.r}"/>`).join('')+'</mergeCells>':'';
-  const colsXml='<cols>'+colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')+'</cols>';
-
-  const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><selection activeCell="A1"/></sheetView></sheetViews>${colsXml}<sheetData>${sheetRows}</sheetData>${mergesXml}<pageSetup orientation="landscape" fitToPage="1" fitToWidth="1"/></worksheet>`;
-  const stylesXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="${numFmts.length}">${numFmts.join('')}</numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${cellXfs.length}">${cellXfs.join('')}</cellXfs></styleSheet>`;
-  const wbXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Programma di Carico" sheetId="1" r:id="rId1"/></sheets></workbook>`;
-  const wbRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
-  const ctXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
-  const rootRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-
-  const files={'[Content_Types].xml':ctXml,'_rels/.rels':rootRels,'xl/workbook.xml':wbXml,'xl/_rels/workbook.xml.rels':wbRels,'xl/styles.xml':stylesXml,'xl/worksheets/sheet1.xml':sheetXml};
+  const files = {
+    '[Content_Types].xml': ctXml,
+    '_rels/.rels': rels([['rId1', 'officeDocument', 'xl/workbook.xml']]),
+    'xl/workbook.xml': wbXml,
+    'xl/_rels/workbook.xml.rels': rels([['rId1', 'worksheet', 'worksheets/sheet1.xml'], ['rId2', 'styles', 'styles.xml'], ['rId3', 'sharedStrings', 'sharedStrings.xml']]),
+    'xl/styles.xml': stylesXml,
+    'xl/sharedStrings.xml': sstXml,
+    'xl/worksheets/sheet1.xml': sheetXml,
+    'xl/worksheets/_rels/sheet1.xml.rels': rels(tables.map((_, i) => [`rId${i + 1}`, 'table', `../tables/table${i + 1}.xml`])),
+  };
+  tables.forEach((t, i) => { files[`xl/tables/table${i + 1}.xml`] = tableXml(t, i); });
   return zipBlob(files);
 }
 
