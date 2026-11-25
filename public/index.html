@@ -156,6 +156,9 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .m-center > .btn, .m-center > label.btn{width:100%}
   .m-center > label.muted{justify-content:center}
   .m-center .btn-link{align-self:center;width:auto}
+  /* Il foglio Excel non si scarica dal telefono */
+  #dl,.extra-wrap{display:none!important}
+  body.mag .dlrow{display:none}
   .art.uff .lines th.c-st{display:none}
   .art.uff .lines td.c-st{grid-column:1/-1;grid-row:2;padding-top:4px}
   .kv{grid-template-columns:110px 1fr}
@@ -392,9 +395,9 @@ function drawOrder() {
           </dl>
         </div>
       </div>
-      <div class="row m-center" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      <div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
         <button class="btn" id="dl">⬇ Foglio da stampare (.xlsx)</button>
-        <label class="muted row" style="gap:6px">righe vuote in più <input class="t" id="extra" type="number" min="0" max="30" value="${h(store.get('pk_extra', '2'))}" style="width:64px;padding:6px 8px"></label>
+        <label class="muted row extra-wrap" style="gap:6px">righe vuote in più <input class="t" id="extra" type="number" min="0" max="30" value="${h(store.get('pk_extra', '2'))}" style="width:64px;padding:6px 8px"></label>
         <span class="spacer"></span>
         ${o.file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.file)}" target="_blank">Conferma PDF</a>` : ''}
         ${o.scan_file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.scan_file)}" target="_blank">Foglio caricato</a>` : ''}
