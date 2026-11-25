@@ -558,10 +558,10 @@ async function closeOrder(force) {
 async function renderStock() {
   const uff = me.ruolo === 'ufficio';
   $app.innerHTML = `<div class="eyebrow">Magazzino</div><h1>Giacenza rotoli</h1>
-    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando l'ufficio chiude un ordine. Per ogni prodotto puoi scaricare il registro Excel nello stesso formato di oggi.</p>
+    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando l'ufficio chiude un ordine con il DDT. Il registro Excel di ogni prodotto (rotoli usciti e clienti) si scarica già compilato, nello stesso formato di oggi.</p>
     ${uff ? `<div class="grid2">
       <div class="card"><h2>Arrivo merce</h2><div class="drop-zone" id="dzs"><div class="label">Packing list del fornitore (PDF)</div><div class="sub">i rotoli con n. e kg entrano in giacenza</div><input type="file"></div><div id="ss"></div></div>
-      <div class="card"><h2>Registro esistente</h2><div class="drop-zone" id="dzx"><div class="label">Importa registro Excel</div><div class="sub">es. KBSSR35ADH55.xlsx — il nome del file è il codice articolo</div><input type="file" multiple></div><div id="xs"></div></div>
+      <div class="card"><h2>Storico (facoltativo)</h2><div class="drop-zone" id="dzx"><div class="label">Importa un registro Excel già compilato</div><div class="sub">solo se si vuole lo storico uscite passato nel portale. Il nome del file è il codice articolo (es. KBSSR35ADH55.xlsx)</div><input type="file" multiple></div><div id="xs"></div></div>
     </div><div id="review"></div>` : ''}
     <div class="card" style="padding:8px 8px 4px"><div id="pl"><div class="empty">Caricamento…</div></div></div>
     <div class="card"><h2>Ultimi arrivi</h2><div id="shl" class="muted">…</div></div>`;
