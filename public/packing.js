@@ -34,9 +34,10 @@ function buildXlsx(d, o = {}) {
     `<border>${all('medium')}<diagonal/></border>`,
     '<border><left/><right/><top/><bottom style="medium"><color rgb="FF000000"/></bottom><diagonal/></border>',
   ];
-  // I totali a zero restano vuoti: sul foglio stampato si scrivono a mano.
-  const numFmts = ['<numFmt numFmtId="164" formatCode="0&quot; rotoli&quot;;-0;&quot;&quot;"/>',
-    '<numFmt numFmtId="165" formatCode="General;-General;&quot;&quot;"/>'];
+  // I totali a zero mostrano solo l'etichetta: sul foglio stampato si scrivono a mano.
+  const numFmts = ['<numFmt numFmtId="164" formatCode="&quot;Totale   &quot;0&quot; rotoli&quot;;-0;&quot;Totale&quot;"/>',
+    '<numFmt numFmtId="165" formatCode="General&quot; kg&quot;;-General;&quot;&quot;"/>',
+    '<numFmt numFmtId="166" formatCode="&quot;TOTALE ORDINE   &quot;0&quot; rotoli&quot;;-0;&quot;TOTALE ORDINE&quot;"/>'];
   const xfs = [];
   const X = (font, fill, border, h, { num = 0, wrap = false } = {}) => {
     xfs.push(`<xf numFmtId="${num}" fontId="${font}" fillId="${fill}" borderId="${border}" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${h}" vertical="center"${wrap ? ' wrapText="1"' : ''}/></xf>`);
@@ -47,27 +48,22 @@ function buildXlsx(d, o = {}) {
     title: X(1, 0, 3, 'left'),
     titleR: X(6, 0, 3, 'right'),
     co: X(5, 0, 0, 'left'),
-    lbl: X(2, 3, 1, 'left', { wrap: true }),
     val: X(4, 0, 1, 'left', { wrap: true }),
-    valB: X(3, 0, 1, 'left', { wrap: true }),
     art: X(3, 2, 2, 'left', { wrap: true }),
     meta: X(0, 0, 1, 'left'),
     th: X(2, 3, 1, 'center'),
     cTxt: X(4, 0, 1, 'center', { num: 49 }),   // 49 = formato Testo
-    cKg: X(4, 0, 1, 'right'),
-    cNote: X(4, 0, 1, 'left', { wrap: true }),
-    totL: X(2, 0, 2, 'left'),
-    totN: X(2, 0, 2, 'center', { num: 164 }),
-    totKg: X(2, 0, 2, 'right', { num: 165 }),
-    gL: X(3, 2, 2, 'left'),
-    gN: X(6, 2, 2, 'center', { num: 164 }),
-    gKg: X(6, 2, 2, 'right', { num: 165 }),
-    gMeta: X(0, 2, 2, 'left', { wrap: true }),
+    cKg: X(4, 0, 1, 'center'),
+    totN: X(2, 0, 2, 'left', { num: 164 }),
+    totKg: X(2, 0, 2, 'center', { num: 165 }),
+    gN: X(6, 2, 2, 'left', { num: 166 }),
+    gKg: X(6, 2, 2, 'center', { num: 165 }),
+    sign: X(4, 0, 1, 'left', { wrap: true }),
   };
 
-  // ── Colonne: A N. Rotolo | B KG | C Note  (larghezza totale ≈ 17 cm, sta in A4 al 100%)
-  const W = [24, 18, 46];
-  const COLS = 'ABC';
+  // ── Due colonne: A N. Rotolo | B KG  (larghezza totale ≈ 16 cm, sta in A4 al 100%)
+  const W = [44, 40];
+  const COLS = 'AB';
   const TOTAL_W = W.reduce((a, b) => a + b, 0);
   const lines = (text, width, k = 0.95) => Math.max(1, Math.ceil(String(text || '').length / Math.max(1, Math.floor(width * k))));
 
@@ -75,44 +71,42 @@ function buildXlsx(d, o = {}) {
   const merges = [];
   const breaks = [];
   const tables = [];
-  const PAGE_H = 745;
-  const ROW_H = 19;     // riga da compilare (anche a penna)   // punti utili per pagina A4 con questi margini
+  const PAGE_H = 745;   // punti utili per pagina A4 con questi margini
+  const ROW_H = 19;     // riga da compilare (anche a penna)
   let used = 0;
 
   const addRow = (ht, cells = {}) => { rows.push({ ht, cells }); used += ht; return rows.length; };
   const s = (v, st) => ({ t: 's', v: v == null ? '' : String(v), s: st });
-  const n = (v, st) => ({ t: 'n', v, s: st });
   const f = (v, st) => ({ t: 'f', v, s: st });
   const e = st => ({ t: 'e', s: st });
   const rich = (runs, st) => ({ t: 'r', v: runs, s: st }); // testo con parte in grassetto: [[testo, grassetto], ...]
+  const lv = (label, value) => rich([[label + '   ', true], [value || '', false]], S.val); // "Etichetta  valore"
   const merge = (r, c1, c2) => merges.push(`${COLS[c1]}${r}:${COLS[c2]}${r}`);
   const fmtKg = v => (v == null || v === '') ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 2 });
 
   // ── Testata ordine
-  let r = addRow(26, { 0: s('PROGRAMMA DI CARICO', S.title), 1: e(S.title),
-    2: s(d.n_ordine ? `Ordine n. ${d.n_ordine}` : '', S.titleR) });
+  let r = addRow(26, { 0: s('PROGRAMMA DI CARICO', S.title), 1: s(d.n_ordine ? `Ordine n. ${d.n_ordine}` : '', S.titleR) });
+  r = addRow(14, { 0: s('Serkios · Serchio Distribuzione S.r.l. — Via Luigi Luciani 22, 00197 Roma · P.IVA IT05147461007', S.co), 1: e(S.co) });
   merge(r, 0, 1);
-  r = addRow(14, { 0: s('Serkios · Serchio Distribuzione S.r.l. — Via Luigi Luciani 22, 00197 Roma · P.IVA IT05147461007', S.co), 1: e(S.co), 2: e(S.co) });
-  merge(r, 0, 2);
   addRow(6);
 
-  const wide = (label, value, st = S.val, minH = 18) => {
-    const ht = Math.max(minH, lines(value, W[1] + W[2]) * 14 + 4);
-    const rr = addRow(ht, { 0: s(label, S.lbl), 1: s(value, st), 2: e(st) });
-    merge(rr, 1, 2);
+  // Un dato su tutta la riga, oppure due dati affiancati, sempre "Etichetta valore".
+  const wide = (label, value, minH = 18) => {
+    const ht = Math.max(minH, lines(`${label}   ${value || ''}`, TOTAL_W) * 14 + 4);
+    const rr = addRow(ht, { 0: lv(label, value), 1: e(S.val) });
+    merge(rr, 0, 1);
   };
-  // Due dati sulla stessa riga: il secondo sta nella colonna C con l'etichetta in grassetto.
-  const pair = (l1, v1, l2, v2, st1 = S.val) => {
-    const ht = Math.max(18, lines(v1, W[1]) * 14 + 4, lines(`${l2}  ${v2 || ''}`, W[2]) * 14 + 4);
-    addRow(ht, { 0: s(l1, S.lbl), 1: s(v1, st1), 2: rich([[l2 + '   ', true], [v2 || '', false]], S.val) });
+  const pair = (l1, v1, l2, v2) => {
+    const ht = Math.max(18, lines(`${l1}   ${v1 || ''}`, W[0]) * 14 + 4, lines(`${l2}   ${v2 || ''}`, W[1]) * 14 + 4);
+    addRow(ht, { 0: lv(l1, v1), 1: lv(l2, v2) });
   };
-  wide('Destinatario', d.destinatario_nome, S.valB);
+  wide('Destinatario', d.destinatario_nome);
   wide('Indirizzo', d.destinatario_indirizzo);
   pair('Telefono', d.telefono, 'E-mail', d.email);
-  pair('N. ordine', d.n_ordine, 'Data ordine', d.data_ordine, S.valB);
+  pair('N. ordine', d.n_ordine, 'Data ordine', d.data_ordine);
   pair('Cod. cliente', d.cod_cliente, 'Modalità carico', d.modalita_carico);
   if (d.note_carico) wide('Note di carico', d.note_carico);
-  wide('Magazzino di partenza', magazzino, S.valB, 26);
+  wide('Magazzino di partenza', magazzino, 22);
   addRow(10);
 
   // ── Un blocco per articolo
@@ -127,38 +121,34 @@ function buildXlsx(d, o = {}) {
     const blockH = titleH + 15 + 16 + nRows * ROW_H + 18;
     if (used + blockH > PAGE_H && used > 60) { breaks.push(rows.length); used = 0; }
 
-    let rr = addRow(titleH, { 0: s(titolo, S.art), 1: e(S.art), 2: e(S.art) });
-    merge(rr, 0, 2);
+    let rr = addRow(titleH, { 0: s(titolo, S.art), 1: e(S.art) });
+    merge(rr, 0, 1);
     const meta = [
       p.gr_mq != null ? `GR/MQ ${p.gr_mq}` : '',
       colli ? `Colli ${colli}` : '',
       p.quantita_kg != null ? `KG ordinati ${fmtKg(p.quantita_kg)}` : '',
     ].filter(Boolean).join('     ·     ');
     if (p.quantita_kg != null) kgOrdinati += Number(p.quantita_kg) || 0; else kgNoti = false;
-    rr = addRow(15, { 0: s(meta, S.meta), 1: e(S.meta), 2: e(S.meta) });
-    merge(rr, 0, 2);
+    rr = addRow(15, { 0: s(meta, S.meta), 1: e(S.meta) });
+    merge(rr, 0, 1);
 
     const name = `Articolo${i + 1}`;
-    const hdr = addRow(16, { 0: s('N. Rotolo', S.th), 1: s('KG', S.th), 2: s('Note', S.th) });
-    for (let k = 0; k < nRows; k++) addRow(ROW_H, { 0: e(S.cTxt), 1: e(S.cKg), 2: e(S.cNote) });
-    const tot = addRow(18, { 0: f(`SUBTOTAL(103,${name}[N. Rotolo])`, S.totN),
-      1: f(`SUBTOTAL(109,${name}[KG])`, S.totKg), 2: s('Totale articolo', S.totL) });
-    tables.push({ name, ref: `A${hdr}:C${tot}` });
+    const hdr = addRow(16, { 0: s('N. Rotolo', S.th), 1: s('KG', S.th) });
+    for (let k = 0; k < nRows; k++) addRow(ROW_H, { 0: e(S.cTxt), 1: e(S.cKg) });
+    const tot = addRow(18, { 0: f(`SUBTOTAL(103,${name}[N. Rotolo])`, S.totN), 1: f(`SUBTOTAL(109,${name}[KG])`, S.totKg) });
+    tables.push({ name, ref: `A${hdr}:B${tot}` });
     totRefs.push(tot);
     addRow(8);
   });
 
-  // ── Totale ordine
-  if (used + 26 > PAGE_H) { breaks.push(rows.length); used = 0; }
-  const gMeta = kgNoti ? `KG ordinati ${fmtKg(kgOrdinati)}` : '';
-  addRow(26, { 0: f(`SUM(${totRefs.map(t => 'A' + t).join(',')})`, S.gN),
-    1: f(`SUM(${totRefs.map(t => 'B' + t).join(',')})`, S.gKg), 2: rich([['TOTALE ORDINE', true], [gMeta ? '      ' + gMeta : '', false]], S.gMeta) });
+  // ── Totale ordine (niente interruzioni fisse qui: se si aggiungono righe in Excel creerebbero pagine bianche)
+  addRow(26, { 0: f(`SUM(${totRefs.map(t => 'A' + t).join(',')})`, S.gN), 1: f(`SUM(${totRefs.map(t => 'B' + t).join(',')})`, S.gKg) });
+  if (kgNoti) { r = addRow(15, { 0: s(`KG ordinati in totale: ${fmtKg(kgOrdinati)}`, S.co), 1: e(S.co) }); merge(r, 0, 1); }
 
   // ── Firme (come sul foglio di oggi)
-  if (used + 72 > PAGE_H) { breaks.push(rows.length); used = 0; }
   addRow(12);
-  addRow(32, { 0: s('Preparato da', S.lbl), 1: d.preparato_da ? s(d.preparato_da, S.val) : e(S.val), 2: rich([['Caricato senza riserve da:', true]], S.val) });
-  addRow(28, { 0: s('Data', S.lbl), 1: d.data_carico ? s(d.data_carico, S.val) : e(S.val), 2: rich([['Firma:', true]], S.val) });
+  addRow(32, { 0: lv('Preparato da', d.preparato_da), 1: lv('Caricato senza riserve da:', '') });
+  addRow(28, { 0: lv('Data', d.data_carico), 1: lv('Firma:', '') });
 
   // ── Stringhe condivise
   const sst = [], sstIdx = new Map();
@@ -202,10 +192,9 @@ function buildXlsx(d, o = {}) {
 
   const tableXml = (t, i) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${i + 1}" name="${t.name}" displayName="${t.name}" ref="${t.ref}" totalsRowCount="1">`
-    + `<tableColumns count="3">`
+    + `<tableColumns count="2">`
     + `<tableColumn id="1" name="N. Rotolo" totalsRowFunction="count"/>`
     + `<tableColumn id="2" name="KG" totalsRowFunction="sum"/>`
-    + `<tableColumn id="3" name="Note" totalsRowLabel="Totale articolo"/>`
     + `</tableColumns><tableStyleInfo name="TableStyleLight1" showFirstColumn="0" showLastColumn="0" showRowStripes="0" showColumnStripes="0"/></table>`;
 
   const sstXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sst.length}" uniqueCount="${sst.length}">${sst.map(v => typeof v === 'string' ? `<si><t xml:space="preserve">${esc(v)}</t></si>`
