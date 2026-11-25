@@ -155,6 +155,8 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .lines tr{padding:6px 10px;column-gap:8px}
   .art.uff .lines tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   #dirty{display:none}
+  /* Safari su iPhone ingrandisce la pagina quando si tocca un campo con testo sotto i 16px, e resta ingrandita */
+  input,select,textarea,input.t,select.t,textarea.t,.lines input{font-size:16px!important}
   .sticky-actions .sa-in{padding:0 14px;flex-wrap:nowrap}
   .sticky-actions .btn{flex:1;padding:12px 10px} .sticky-actions #send{flex:2}
   /* Pulsanti e testi dei riquadri "Foglio da stampare" e "Foglio compilato a penna" centrati */
