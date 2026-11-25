@@ -1,83 +1,45 @@
-# Packing List PDF → Excel
+# Portale Programma di Carico — Serchio Distribuzione / Serkios
 
-Tool per convertire i programmi di carico Serchio Distribuzione SRL da PDF a Excel.
+Portale web (Railway) che sostituisce il giro di fogli tra ufficio e magazzino.
+
+## Flusso
+
+1. **Ufficio** (Angela) carica la conferma d'ordine in PDF → l'AI legge cliente, articoli (con codice), colli e kg → l'ordine è subito visibile al magazzino.
+2. **Magazzino** (Daniele) apre l'ordine:
+   - scarica il foglio da stampare (A4 verticale, bianco e nero), oppure
+   - inserisce i rotoli online (bastano le ultime cifre: "726" → 1626070726), oppure
+   - carica la foto / scansione del foglio compilato a penna: rotoli e kg vengono letti e messi nel form da controllare.
+   Poi "Invia all'ufficio".
+3. **Controllo automatico** contro la giacenza caricata dai packing list del fornitore (es. Mondi): rotolo esistente, prodotto giusto, non già uscito, kg uguali (±2 kg), non doppio, n. rotoli = colli. Se una cifra è letta male propone i rotoli in giacenza che differiscono di una cifra.
+4. **Ufficio** chiude con nome cliente e n. DDT → i rotoli escono dalla giacenza e finiscono nello storico del registro.
+5. **Registro Excel** per prodotto (es. `KBSSR35ADH55.xlsx`) scaricabile nello stesso formato di oggi: giacenza in alto, riga Totale, storico uscite per cliente/DDT.
+
+## Magazzino
+
+- *Importa registro Excel*: carica gli Excel attuali (nome file = codice articolo). Sostituisce giacenza e storico di quel prodotto.
+- *Arrivo merce*: packing list PDF del fornitore → rotoli (Batch No.) e kg in giacenza. Il codice fornitore (es. Mondi AHG35H55) viene abbinato al codice Serkios e ricordato.
+
+## Variabili su Railway
+
+| Variabile | A cosa serve |
+|---|---|
+| `ANTHROPIC_API_KEY` | lettura PDF e foto |
+| `UFFICIO_CODE` (o `ACCESS_CODE`) | codice di accesso dell'ufficio |
+| `MAGAZZINO_CODE` | codice di accesso del magazzino |
+| `SESSION_SECRET` | facoltativa, firma dei login |
+
+Serve un **Volume** Railway montato (es. `/data`): lì stanno il database SQLite (`portale.db`) e i file caricati. Senza volume i dati si perdono a ogni deploy.
 
 ## Struttura
 
 ```
-packing-proxy/
-├── server.js      ← proxy Node.js (nasconde la API key)
-├── index.html     ← interfaccia utente (va hostato separatamente)
-├── package.json
-└── railway.toml
+server.js          API e login
+lib/db.js          database (SQLite integrato in Node ≥ 24)
+lib/ai.js          letture con Claude: conferma, packing list fornitore, foglio a mano
+lib/match.js       riconoscimento rotoli e controlli
+lib/register.js    import/export registro Excel
+public/index.html  portale (ufficio e magazzino, anche da telefono)
+public/packing.js  foglio di carico stampabile (.xlsx)
 ```
 
----
-
-## Deploy in 5 minuti su Railway
-
-### 1. Crea un repo GitHub
-
-```bash
-cd packing-proxy
-git init
-git add .
-git commit -m "init"
-# crea repo su github.com e fai push
-git remote add origin https://github.com/TUO-USERNAME/packing-proxy.git
-git push -u origin main
-```
-
-### 2. Deploy su Railway
-
-1. Vai su **railway.app** → "New Project" → "Deploy from GitHub repo"
-2. Seleziona il repo `packing-proxy`
-3. Railway rileva Node.js automaticamente
-
-### 3. Aggiungi la variabile d'ambiente
-
-In Railway → il tuo progetto → **Variables** → aggiungi:
-
-```
-ANTHROPIC_API_KEY = sk-ant-...la tua chiave...
-```
-
-### 4. Ottieni l'URL pubblico
-
-In Railway → Settings → **Domains** → "Generate Domain"
-Otterrai qualcosa come: `https://packing-proxy-production.up.railway.app`
-
----
-
-## Configura il frontend
-
-Apri `index.html` e alla riga:
-
-```js
-const PROXY_URL = 'YOUR_PROXY_URL/api/convert';
-```
-
-Sostituisci con il tuo URL Railway:
-
-```js
-const PROXY_URL = 'https://packing-proxy-production.up.railway.app/api/convert';
-```
-
----
-
-## Host del frontend
-
-Opzione più semplice — **GitHub Pages** (gratis):
-
-1. Metti `index.html` in un repo GitHub (può essere lo stesso)
-2. Repository Settings → Pages → Source: "Deploy from branch main"
-3. Il tool sarà disponibile su `https://TUO-USERNAME.github.io/packing-proxy`
-
-Oppure trascina `index.html` su **Netlify Drop** (netlify.com/drop) per avere un URL in 30 secondi.
-
----
-
-## Costo stimato
-
-- Railway free tier: **500 ore/mese gratis** (più che sufficiente)
-- Anthropic API: ~**$0.01–0.03 per conversione** (Sonnet 4)
+In locale senza codici impostati: codice `magazzino` = magazzino, qualsiasi altro = ufficio.

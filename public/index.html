@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serkios — Programma di Carico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#191714; --ink-soft:#5f5a53; --ink-faint:#8d877e;
+  --paper:#f5f2ec; --paper-2:#efebe3; --card:#fff;
+  --red:#c8342a; --red-dark:#a3261d; --red-tint:#fcefed;
+  --ok:#1b7a4c; --ok-bg:#e7f4ec; --ok-line:#a9d8bd;
+  --warn:#9a6200; --warn-bg:#fdf3df; --warn-line:#efd39a;
+  --err:#c3301f; --err-bg:#fcebe8; --err-line:#efb2a9;
+  --info:#2f5d8a; --info-bg:#eaf0f7; --info-line:#cbd9e8;
+  --line:#e7e1d7; --line-strong:#d3cabb;
+  --shadow:0 1px 2px rgba(25,23,20,.05),0 10px 30px -14px rgba(25,23,20,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--paper);color:var(--ink);
+  min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+
+.topbar{background:#171512;color:#f4efe7;position:sticky;top:0;z-index:20}
+.topbar .wrap{max-width:1160px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mark{width:36px;height:36px;border-radius:10px;background:var(--red);display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff}
+.brand{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.brand span{color:#f08a80;font-weight:800;letter-spacing:.04em}
+.brand-sub{font-size:12px;color:#a69e92}
+.nav{display:flex;gap:4px;margin-left:12px}
+.nav a{text-decoration:none;font-size:13.5px;font-weight:600;color:#cfc7bb;padding:7px 12px;border-radius:9px}
+.nav a.on,.nav a:hover{background:#2a2622;color:#fff}
+.who{margin-left:auto;font-size:12.5px;color:#a69e92;display:flex;align-items:center;gap:10px}
+.who b{color:#f4efe7;font-weight:600}
+.who button{background:none;border:1px solid #3a352f;color:#cfc7bb;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
+
+.container{width:100%;max-width:1060px;margin:28px auto 0;padding:0 20px;flex:1}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+h1{font-size:26px;letter-spacing:-.02em;line-height:1.2;margin:4px 0 6px}
+h2{font-size:17px;letter-spacing:-.01em;margin-bottom:10px}
+.subtitle{font-size:14px;color:var(--ink-soft);margin-bottom:20px;max-width:640px}
+.muted{color:var(--ink-faint);font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.drop-zone{border:1.5px dashed var(--line-strong);border-radius:13px;padding:26px 18px;text-align:center;cursor:pointer;background:#fdfcfa;transition:.15s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--red);background:var(--red-tint)}
+.drop-zone .label{font-size:15px;font-weight:600}
+.drop-zone .sub{font-size:13px;color:var(--ink-soft)}
+.drop-zone input{display:none}
+
+.btn{border:1px solid var(--line-strong);background:#fff;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;padding:9px 15px;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--paper-2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn-primary:hover{background:var(--red-dark)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn-ok:hover{background:#166640}
+.btn-sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn-link{border:none;background:none;color:var(--ink-soft);padding:6px 8px;font-weight:500}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+input.t,select.t,textarea.t{width:100%;padding:9px 11px;border:1px solid var(--line-strong);border-radius:9px;font-size:14.5px;background:#fdfcfa;color:var(--ink);font-weight:400}
+input.t:focus,select.t:focus,textarea.t:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,52,42,.14)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+
+.status{margin-top:12px;padding:11px 13px;border-radius:10px;font-size:13.5px;font-weight:500;border:1px solid transparent;display:flex;gap:10px;align-items:center}
+.status.loading{background:var(--info-bg);color:var(--info);border-color:var(--info-line)}
+.status.error{background:var(--err-bg);color:var(--err);border-color:var(--err-line)}
+.status.okk{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.status.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.spinner{width:16px;height:16px;border:2px solid #c9d7e7;border-top-color:var(--info);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+table.list{width:100%;border-collapse:collapse;font-size:14px}
+table.list th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--line)}
+table.list td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tr.click{cursor:pointer}
+table.list tr.click:hover td{background:#faf8f4}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.b-da_preparare{background:var(--warn-bg);color:var(--warn)}
+.b-preparato{background:var(--info-bg);color:var(--info)}
+.b-chiuso{background:var(--ok-bg);color:var(--ok)}
+
+.art{border:1px solid var(--line);border-radius:13px;margin-bottom:14px;overflow:hidden}
+.art-h{background:#faf8f4;padding:12px 14px;border-bottom:1px solid var(--line)}
+.art-h .t{font-weight:700;font-size:14.5px}
+.art-h .m{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+.lines{width:100%;border-collapse:collapse}
+.lines th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);text-align:left;padding:7px 8px;font-weight:700}
+.lines td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:middle}
+.lines input{width:100%;padding:8px 9px;border:1px solid var(--line-strong);border-radius:8px;font-size:15px;background:#fff}
+.lines input:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,52,42,.12)}
+.lines td.c-pal{width:80px}.lines td.c-roll{width:170px}.lines td.c-kg{width:100px}.lines td.c-x{width:36px}
+.st{font-size:12.5px;line-height:1.35;display:flex;gap:7px;align-items:flex-start}
+.st .dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;flex:none;margin-top:1px}
+.st.ok .dot{background:var(--ok-bg);color:var(--ok)} .st.ok{color:var(--ink-soft)}
+.st.warn .dot{background:var(--warn-bg);color:var(--warn)} .st.warn{color:var(--warn)}
+.st.bad .dot{background:var(--err-bg);color:var(--err)} .st.bad{color:var(--err)}
+.st.none .dot{background:var(--paper-2);color:var(--ink-faint)} .st.none{color:var(--ink-faint)}
+.chip{display:inline-block;border:1px solid var(--line-strong);border-radius:7px;padding:1px 7px;margin:3px 4px 0 0;font-size:12px;cursor:pointer;background:#fff;color:var(--ink)}
+.chip:hover{border-color:var(--red)}
+.art-f{display:flex;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-soft);flex-wrap:wrap}
+.x{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:4px 6px;border-radius:6px}
+.x:hover{background:var(--paper-2);color:var(--err)}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--ink-faint);font-size:13px}
+.sticky-actions{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(245,242,236,0),var(--paper) 30%);padding:18px 0 14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;z-index:5}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.summary div{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.summary b{display:block;font-size:20px;letter-spacing:-.01em}
+.summary span{font-size:12px;color:var(--ink-faint)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#171512;color:#fff;padding:11px 16px;border-radius:11px;font-size:14px;z-index:100;box-shadow:var(--shadow);max-width:90vw}
+.login{max-width:400px;margin:60px auto}
+.empty{padding:26px;text-align:center;color:var(--ink-faint);font-size:14px}
+footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-size:11.5px;color:var(--ink-faint);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media (max-width:720px){
+  .container{margin-top:18px;padding:0 14px} h1{font-size:22px}
+  .card{padding:14px} .grid2,.grid3{grid-template-columns:1fr} .summary{grid-template-columns:1fr 1fr}
+  .nav{margin-left:0;order:3;width:100%} .who{font-size:12px}
+  .hide-m{display:none}
+  .lines td.c-roll{width:auto}.lines td.c-pal{width:56px}.lines td.c-kg{width:74px}
+  .lines tr.l{display:grid;grid-template-columns:56px 1fr 74px 30px;align-items:center}
+  .lines tr.l td{border-top:none} .lines tr.l td.c-st{grid-column:1/-1;padding-top:0}
+  .lines tr.l{border-top:1px solid var(--line)} .lines thead{display:none}
+  .kv{grid-template-columns:110px 1fr}
+}
+@media print{.topbar,.sticky-actions,footer{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <div class="mark">S</div>
+  <div>
+    <div class="brand"><span>SERKIOS</span> · Programma di Carico</div>
+    <div class="brand-sub">Serchio Distribuzione S.r.l.</div>
+  </div>
+  <nav class="nav" id="nav"></nav>
+  <div class="who" id="who"></div>
+</div></div>
+
+<main class="container" id="app"></main>
+<footer><span>Serkios · Serchio Distribuzione S.r.l. · Roma</span><span>Lettura documenti con Claude (Anthropic)</span></footer>
+
+<script src="packing.js"></script>
+<script>
+// ── Utilità ────────────────────────────────────────────────
+const $app = document.getElementById('app');
+const h = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const fmtKg = v => v == null || v === '' ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 1 });
+const fmtDate = iso => { if (!iso) return ''; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
+const STATUS = { da_preparare: 'Da preparare', preparato: 'Da controllare', chiuso: 'Chiuso' };
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
+let me = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { method: opts.method || (opts.body ? 'POST' : 'GET'), headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' });
+  let d = null; try { d = await r.json(); } catch (_) {}
+  if (!r.ok) {
+    if (r.status === 401 && path !== '/api/login') { me = null; renderLogin(); }
+    const e = new Error(d?.error || `Errore ${r.status}`); e.status = r.status; e.data = d; throw e;
+  }
+  return d;
+}
+function toast(msg, ms = 3200) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), ms);
+}
+function status(el, kind, text) {
+  el.innerHTML = kind ? `<div class="status ${kind}">${kind === 'loading' ? '<div class="spinner"></div>' : ''}<span>${h(text)}</span></div>` : '';
+}
+// Le foto del telefono vengono ridotte prima dell'invio (lettura più veloce, file più piccolo).
+function readFile(file) {
+  return new Promise((res, rej) => {
+    const isImg = file.type.startsWith('image/');
+    const r = new FileReader();
+    r.onerror = () => rej(new Error('Lettura del file non riuscita'));
+    r.onload = () => {
+      if (!isImg || file.type === 'image/gif') return res({ data: String(r.result).split(',')[1], media_type: file.type || 'application/pdf', name: file.name });
+      const img = new Image();
+      img.onload = () => {
+        const max = 2200, k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res({ data: c.toDataURL('image/jpeg', 0.88).split(',')[1], media_type: 'image/jpeg', name: file.name });
+      };
+      img.onerror = () => rej(new Error('Immagine non leggibile (provare JPG o PNG)'));
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+function dropZone(el, accept, onFile) {
+  const input = el.querySelector('input');
+  input.accept = accept;
+  el.addEventListener('click', e => { if (e.target !== input) input.click(); });
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('drag-over'); if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]); });
+  input.addEventListener('change', () => { if (input.files[0]) onFile(input.files[0]); input.value = ''; });
+}
+function download(blob, name) {
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// ── Navigazione ────────────────────────────────────────────
+function renderChrome() {
+  const route = location.hash || '#/ordini';
+  const links = [['#/ordini', 'Ordini']];
+  links.push(['#/magazzino', 'Magazzino']);
+  document.getElementById('nav').innerHTML = me ? links.map(([href, t]) => `<a href="${href}" class="${route.startsWith(href) || (href === '#/ordini' && route.startsWith('#/ordine')) || (href === '#/magazzino' && route.startsWith('#/prodotto')) ? 'on' : ''}">${t}</a>`).join('') : '';
+  document.getElementById('who').innerHTML = me ? `<span><b>${h(me.nome)}</b> · ${me.ruolo === 'ufficio' ? 'Ufficio' : 'Magazzino'}</span><button id="logout">Esci</button>` : '';
+  if (me) document.getElementById('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); me = null; renderLogin(); };
+}
+async function route() {
+  if (!me) return renderLogin();
+  renderChrome();
+  const r = location.hash || '#/ordini';
+  let m;
+  try {
+    if ((m = r.match(/^#\/ordine\/(\d+)/))) return await renderOrder(Number(m[1]));
+    if ((m = r.match(/^#\/prodotto\/(.+)/))) return await renderProduct(decodeURIComponent(m[1]));
+    if (r.startsWith('#/magazzino')) return await renderStock();
+    return await renderOrders();
+  } catch (e) {
+    if (e.status === 401) return;
+    $app.innerHTML = `<div class="status error">${h(e.message)}</div>`;
+  }
+}
+window.addEventListener('hashchange', route);
+
+// ── Accesso ────────────────────────────────────────────────
+function renderLogin() {
+  renderChrome();
+  $app.innerHTML = `<div class="login card">
+    <div class="eyebrow">Accesso</div><h1>Programma di Carico</h1>
+    <p class="subtitle">Entra con il tuo nome e il codice dell'ufficio o del magazzino.</p>
+    <form id="lf" class="row" style="flex-direction:column;align-items:stretch;gap:12px">
+      <label class="f">Nome<input class="t" id="ln" autocomplete="name" value="${h(store.get('pk_nome', ''))}" placeholder="Es. Angela"></label>
+      <label class="f">Codice di accesso<input class="t" id="lc" type="password" autocomplete="current-password"></label>
+      <button class="btn btn-primary" type="submit">Entra</button>
+      <div id="ls"></div>
+    </form></div>`;
+  document.getElementById(store.get('pk_nome', '') ? 'lc' : 'ln').focus();
+  document.getElementById('lf').onsubmit = async e => {
+    e.preventDefault();
+    const nome = document.getElementById('ln').value.trim(), codice = document.getElementById('lc').value.trim();
+    try {
+      me = await api('/api/login', { body: { nome, codice } });
+      store.set('pk_nome', nome);
+      route();
+    } catch (err) { status(document.getElementById('ls'), 'error', err.message); }
+  };
+}
+
+// ── Ordini ─────────────────────────────────────────────────
+async function renderOrders() {
+  const uff = me.ruolo === 'ufficio';
+  $app.innerHTML = `<div class="eyebrow">Logistica</div><h1>Ordini</h1>
+    <p class="subtitle">${uff ? 'Carica la conferma d\'ordine: il programma di carico è subito visibile al magazzino. Quando il magazzino lo ha compilato, controlli i rotoli e chiudi con il DDT.' : 'Apri un ordine da preparare, scarica il foglio da stampare oppure inserisci i rotoli direttamente qui. Puoi anche caricare la foto del foglio compilato a penna.'}</p>
+    ${uff ? `<div class="card">
+      <h2>Nuovo ordine</h2>
+      <div class="drop-zone" id="dz"><div class="label">Trascina qui la conferma d'ordine (PDF)</div><div class="sub">oppure clicca per selezionarla</div><input type="file"></div>
+      <div class="grid2" style="margin-top:12px">
+        <label class="f">Magazzino di partenza<input class="t" id="mag" value="${h(store.get('pk_magazzino', ''))}" placeholder="Es. TORELLO LANDI — Porcari (LU)"></label>
+      </div>
+      <div id="ns"></div>
+    </div>` : ''}
+    <div class="card" style="padding:8px 8px 4px"><div id="ol"><div class="empty">Caricamento…</div></div></div>`;
+  if (uff) {
+    const mag = document.getElementById('mag');
+    mag.onchange = () => store.set('pk_magazzino', mag.value);
+    dropZone(document.getElementById('dz'), 'application/pdf', async file => {
+      const ns = document.getElementById('ns');
+      status(ns, 'loading', `Lettura di "${file.name}" in corso… (circa 20 secondi)`);
+      try {
+        const f = await readFile(file);
+        store.set('pk_magazzino', mag.value);
+        const o = await api('/api/orders', { body: { file: f, magazzino: mag.value } });
+        location.hash = '#/ordine/' + o.id;
+      } catch (e) { status(ns, 'error', e.message); }
+    });
+  }
+  const list = await api('/api/orders');
+  const ol = document.getElementById('ol');
+  if (!list.length) { ol.innerHTML = `<div class="empty">Nessun ordine${uff ? ': carica la prima conferma qui sopra.' : ' da preparare.'}</div>`; return; }
+  ol.innerHTML = `<table class="list"><thead><tr><th>Ordine</th><th>Cliente</th><th class="hide-m">Magazzino</th><th class="num">Rotoli</th><th>Stato</th></tr></thead><tbody>
+    ${list.map(o => `<tr class="click" data-id="${o.id}"><td><b>${h(o.n_ordine || '—')}</b><div class="muted">${h(o.data_ordine || '')}</div></td>
+      <td>${h(o.cliente || '')}<div class="muted">${h(o.localita || '')}</div></td>
+      <td class="hide-m muted">${h(o.magazzino || '')}</td>
+      <td class="num">${o.rotoli} / ${o.colli}</td>
+      <td><span class="badge b-${o.status}">${STATUS[o.status]}</span>${o.ddt ? `<div class="muted">DDT ${h(o.ddt)}</div>` : o.prepared_by && o.status !== 'da_preparare' ? `<div class="muted">da ${h(o.prepared_by)}</div>` : ''}</td></tr>`).join('')}
+    </tbody></table>`;
+  ol.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/ordine/' + tr.dataset.id);
+}
+
+// ── Dettaglio ordine ───────────────────────────────────────
+let cur = null;        // ordine aperto
+let draft = null;      // righe in modifica: [{item, pallet, roll_input, kg_input, note, match}]
+let dirty = false;
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+function stateView(m) {
+  if (!m || m.state === 'vuoto') return '<div class="st none"><span class="dot">·</span><span></span></div>';
+  const r = m.roll;
+  const rollTxt = r ? `<b>${h(r.roll_no)}</b> · ${fmtKg(r.kg)} kg${r.arrival_date ? ` · arrivo ${fmtDate(r.arrival_date)}` : ''}` : '';
+  const chips = (m.candidates || []).map(c => `<span class="chip" data-roll="${h(c.roll_no)}">${h(c.roll_no)}${c.kg ? ` · ${fmtKg(c.kg)}` : ''}${c.product_code && ['altro_prodotto', 'no_giacenza'].includes(m.state) ? ` · ${h(c.product_code)}` : ''}</span>`).join('');
+  if (m.state === 'ok') return `<div class="st ok"><span class="dot">✓</span><span>${rollTxt}</span></div>`;
+  const kind = ['kg', 'ambiguo', 'conflitto', 'no_giacenza'].includes(m.state) ? (m.state === 'no_giacenza' ? 'none' : 'warn') : 'bad';
+  return `<div class="st ${kind}"><span class="dot">${kind === 'bad' ? '✕' : '!'}</span><span>${h(m.msg || '')}${rollTxt && m.state !== 'kg' ? `<br>${rollTxt}` : ''}${m.state === 'kg' ? `<br>${rollTxt}` : ''}${chips ? `<br>${chips}` : ''}</span></div>`;
+}
+
+async function renderOrder(id) {
+  cur = await api('/api/orders/' + id);
+  draft = cur.lines.map(l => ({ item: l.item, pallet: l.pallet || '', roll_input: l.roll_input || '', kg_input: l.kg_input ?? '', note: l.note || '', match: l.match }));
+  // Righe vuote pronte: tante quanti i colli dell'ordine.
+  cur.items.forEach((it, i) => {
+    const have = draft.filter(l => l.item === i).length;
+    for (let k = have; k < Math.max(it.colli || 1, have ? have : 0); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null });
+  });
+  dirty = false;
+  drawOrder();
+}
+
+function drawOrder() {
+  const o = cur, uff = me.ruolo === 'ufficio', closed = o.status === 'chiuso';
+  const ro = closed;
+  const chk = o.check;
+  $app.innerHTML = `
+    <div class="row"><a href="#/ordini" class="btn btn-link">← Ordini</a></div>
+    <div class="row" style="align-items:flex-end;margin-bottom:12px">
+      <div><div class="eyebrow">Ordine n. ${h(o.n_ordine || '—')} · ${h(o.data_ordine || '')}</div>
+      <h1 style="margin-bottom:2px">${h(o.cliente || 'Cliente')}</h1>
+      <div class="muted">${h(o.indirizzo || '')}</div></div>
+      <span class="spacer"></span><span class="badge b-${o.status}" style="font-size:13px;padding:5px 12px">${STATUS[o.status]}</span>
+    </div>
+
+    <div class="card">
+      <div class="grid2">
+        <dl class="kv">
+          <dt>Cod. cliente</dt><dd>${h(o.cod_cliente || '—')}</dd>
+          <dt>Telefono</dt><dd>${h(o.telefono || '—')}</dd>
+          <dt>Carico</dt><dd>${h(o.modalita_carico || '—')}</dd>
+          ${o.note_carico ? `<dt>Note di carico</dt><dd>${h(o.note_carico)}</dd>` : ''}
+        </dl>
+        <div>
+          ${uff && !closed ? `<label class="f">Magazzino di partenza<input class="t" id="omag" value="${h(o.magazzino || '')}" placeholder="Es. TORELLO LANDI"></label>` : `<dl class="kv"><dt>Magazzino</dt><dd>${h(o.magazzino || '—')}</dd></dl>`}
+          <dl class="kv" style="margin-top:10px">
+            ${o.prepared_by ? `<dt>Preparato da</dt><dd>${h(o.prepared_by)} · ${fmtDate(o.prepared_at)}</dd>` : ''}
+            ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
+          </dl>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <button class="btn" id="dl">⬇ Foglio da stampare (.xlsx)</button>
+        <label class="muted row" style="gap:6px">righe vuote in più <input class="t" id="extra" type="number" min="0" max="30" value="${h(store.get('pk_extra', '2'))}" style="width:64px;padding:6px 8px"></label>
+        <span class="spacer"></span>
+        ${o.file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.file)}" target="_blank">Conferma PDF</a>` : ''}
+        ${o.scan_file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.scan_file)}" target="_blank">Foglio caricato</a>` : ''}
+        ${uff && !closed ? `<button class="btn btn-sm btn-link" id="del" style="color:var(--err)">Elimina ordine</button>` : ''}
+      </div>
+    </div>
+
+    ${!ro ? `<div class="card">
+      <div class="row"><div><h2 style="margin:0">Foglio compilato a penna?</h2><div class="muted">Carica la foto o la scansione: i rotoli e i kg vengono letti e messi qui sotto da controllare.</div></div>
+      <span class="spacer"></span>
+      <label class="btn"><input type="file" id="scan" accept="image/*,application/pdf" style="display:none">📷 Carica foto / PDF del foglio</label></div>
+      <div id="scs"></div>
+    </div>` : ''}
+
+    ${o.status !== 'da_preparare' || uff ? `<div class="summary">
+      <div><b>${chk.items.reduce((s, x) => s + x.rotoli, 0)} / ${o.items.reduce((s, x) => s + (x.colli || 0), 0)}</b><span>rotoli caricati / ordinati</span></div>
+      <div><b>${fmtKg(chk.items.reduce((s, x) => s + x.kgFornitore, 0))}</b><span>kg (packing list fornitore)</span></div>
+      <div><b>${fmtKg(o.items.reduce((s, x) => s + (x.quantita_kg || 0), 0))}</b><span>kg ordinati</span></div>
+      <div><b style="color:${chk.problemi ? 'var(--err)' : 'var(--ok)'}">${chk.problemi || '✓'}</b><span>${chk.problemi ? 'rotoli da controllare' : 'nessun problema'}${chk.nonVerificabili ? ` · ${chk.nonVerificabili} non verificabili (prodotto senza giacenza)` : ''}</span></div>
+    </div>` : ''}
+
+    <div id="arts">${o.items.map((it, i) => artBlock(it, i, ro)).join('')}</div>
+
+    ${uff ? closeBlock() : ''}
+
+    ${!ro ? `<div class="sticky-actions">
+      <span class="muted" id="dirty" style="align-self:center"></span>
+      <button class="btn" id="save">Salva</button>
+      ${!uff ? `<button class="btn btn-primary" id="send">${o.status === 'preparato' ? 'Invia di nuovo all\'ufficio' : 'Invia all\'ufficio'}</button>` : ''}
+    </div>` : ''}`;
+  bindOrder();
+}
+
+function artBlock(it, i, ro) {
+  const c = cur.check.items[i] || {};
+  const rows = draft.map((l, idx) => ({ l, idx })).filter(x => x.l.item === i);
+  return `<div class="art" data-item="${i}">
+    <div class="art-h"><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
+      <div class="m">${h(it.codice || 'codice ?')} · GR/MQ ${h(it.gr_mq ?? '—')} · <b>${h(it.colli ?? '?')} rotoli</b> · ${fmtKg(it.quantita_kg)} kg ordinati</div></div>
+    <table class="lines"><thead><tr><th>Pallet</th><th>N. rotolo</th><th>Kg</th><th>Controllo</th><th></th></tr></thead><tbody>
+      ${rows.map(({ l, idx }) => `<tr class="l" data-idx="${idx}">
+        <td class="c-pal"><input data-f="pallet" value="${h(l.pallet)}" ${ro ? 'disabled' : ''} inputmode="numeric" aria-label="Pallet"></td>
+        <td class="c-roll"><input data-f="roll_input" value="${h(l.roll_input)}" ${ro ? 'disabled' : ''} inputmode="numeric" placeholder="es. 726" aria-label="Numero rotolo"></td>
+        <td class="c-kg"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg"></td>
+        <td class="c-st">${stateView(l.match)}${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td>
+        <td class="c-x">${ro ? '' : `<button class="x" data-del="${idx}" title="Togli riga">×</button>`}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="art-f">${ro ? '' : `<button class="btn btn-sm" data-add="${i}">+ Rotolo</button>`}
+      <span>${c.rotoli ?? 0} rotoli · foglio ${fmtKg(c.kgFoglio)} kg · fornitore ${fmtKg(c.kgFornitore)} kg</span>
+      ${(c.msgs || []).map(m => `<span class="badge b-da_preparare">${h(m)}</span>`).join('')}</div>
+  </div>`;
+}
+
+function closeBlock() {
+  const o = cur;
+  if (o.status === 'chiuso') return `<div class="card"><h2>Ordine chiuso</h2>
+    <p class="muted">I rotoli riconosciuti sono usciti dalla giacenza e sono nello storico del registro con DDT ${h(o.ddt)}.</p>
+    <div class="row" style="margin-top:10px"><button class="btn" id="reopen">Riapri ordine</button></div></div>`;
+  return `<div class="card" id="closecard"><h2>Chiudi e scarica dal magazzino</h2>
+    <p class="muted" style="margin-bottom:12px">Alla chiusura i rotoli riconosciuti escono dalla giacenza e vengono scritti nel registro del prodotto con questo nome e DDT.</p>
+    <div class="grid3">
+      <label class="f">Nome nel registro<input class="t" id="clabel" placeholder="Es. F.P.C. di Trudu Marcello"></label>
+      <label class="f">N. DDT<input class="t" id="cddt" inputmode="numeric" placeholder="Es. 769"></label>
+      <div class="f" style="justify-content:flex-end"><button class="btn btn-ok" id="close">Chiudi ordine</button></div>
+    </div><div id="cs"></div></div>`;
+}
+
+function collectDraft() {
+  document.querySelectorAll('#arts tr.l').forEach(tr => {
+    const l = draft[Number(tr.dataset.idx)];
+    tr.querySelectorAll('input[data-f]').forEach(inp => { l[inp.dataset.f] = inp.value; });
+  });
+}
+function markDirty() { dirty = true; const d = document.getElementById('dirty'); if (d) d.textContent = 'Modifiche non salvate'; }
+
+function bindOrder() {
+  const o = cur, uff = me.ruolo === 'ufficio';
+  document.getElementById('dl').onclick = () => {
+    const extra = Number(document.getElementById('extra').value) || 0; store.set('pk_extra', String(extra));
+    const d = { destinatario_nome: o.cliente, destinatario_indirizzo: o.indirizzo, telefono: o.telefono, email: o.email, cod_cliente: o.cod_cliente,
+      n_ordine: o.n_ordine, data_ordine: o.data_ordine, modalita_carico: o.modalita_carico, note_carico: o.note_carico, magazzino_partenza: o.magazzino, prodotti: o.items };
+    download(buildXlsx(d, { magazzino: (document.getElementById('omag')?.value || o.magazzino || '').trim(), extraRows: extra }), `ProgrammaCarico_${(o.n_ordine || 'ordine').replace(/\W/g, '')}.xlsx`);
+  };
+  const omag = document.getElementById('omag');
+  if (omag) omag.onchange = async () => { await api('/api/orders/' + o.id, { method: 'PATCH', body: { magazzino: omag.value } }); cur.magazzino = omag.value; toast('Magazzino salvato'); };
+  const del = document.getElementById('del');
+  if (del) del.onclick = async () => { if (!confirm('Eliminare questo ordine e i rotoli inseriti?')) return; await api('/api/orders/' + o.id, { method: 'DELETE' }); dirty = false; location.hash = '#/ordini'; };
+
+  const arts = document.getElementById('arts');
+  arts.addEventListener('input', e => { if (e.target.matches('input[data-f]')) markDirty(); });
+  // Riconoscimento del rotolo appena si esce dal campo.
+  arts.addEventListener('focusout', async e => {
+    const inp = e.target;
+    if (!inp.matches('input[data-f="roll_input"]')) return;
+    const tr = inp.closest('tr'), l = draft[Number(tr.dataset.idx)];
+    if (l.roll_input === inp.value && l.match) return;
+    l.roll_input = inp.value;
+    const kgv = tr.querySelector('input[data-f="kg_input"]').value;
+    try { l.match = inp.value.trim() ? await api(`/api/orders/${o.id}/resolve?item=${l.item}&q=${encodeURIComponent(inp.value)}&kg=${encodeURIComponent(kgv)}`) : null; } catch (_) { return; }
+    tr.querySelector('.c-st').innerHTML = stateView(l.match);
+    const kg = tr.querySelector('input[data-f="kg_input"]');
+    if (l.match?.roll && !kg.value && document.activeElement !== kg) kg.placeholder = fmtKg(l.match.roll.kg);
+  });
+  arts.addEventListener('keydown', e => {
+    // Invio passa al campo successivo (comodo da tastiera e da telefono).
+    if (e.key !== 'Enter' || !e.target.matches('input[data-f]')) return;
+    e.preventDefault();
+    const all = [...arts.querySelectorAll('input[data-f]:not([disabled])')];
+    const next = all[all.indexOf(e.target) + 1]; if (next) next.focus();
+  });
+  arts.addEventListener('click', e => {
+    const add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]'), chip = e.target.closest('.chip');
+    if (add) { collectDraft(); const i = Number(add.dataset.add); const last = draft.map((l, k) => l.item === i ? k : -1).filter(k => k >= 0).pop(); draft.splice(last == null ? draft.length : last + 1, 0, { item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null }); markDirty(); redrawArts(); const rows = document.querySelectorAll(`.art[data-item="${i}"] tr.l`); rows[rows.length - 1]?.querySelector('[data-f="roll_input"]').focus(); }
+    if (del) { collectDraft(); draft.splice(Number(del.dataset.del), 1); markDirty(); redrawArts(); }
+    if (chip && cur.status !== 'chiuso') { const tr = chip.closest('tr'); const inp = tr.querySelector('[data-f="roll_input"]'); inp.value = chip.dataset.roll; draft[Number(tr.dataset.idx)].match = null; markDirty(); inp.focus(); inp.blur(); }
+  });
+
+  const scan = document.getElementById('scan');
+  if (scan) scan.onchange = async () => {
+    const file = scan.files[0]; scan.value = ''; if (!file) return;
+    const s = document.getElementById('scs');
+    status(s, 'loading', 'Lettura del foglio in corso… (circa 30 secondi)');
+    try {
+      const f = await readFile(file);
+      const r = await api(`/api/orders/${o.id}/scan`, { body: { file: f } });
+      if (!r.lines.length) return status(s, 'warn', 'Non ho trovato rotoli scritti sul foglio. Controlla che la foto sia dritta e leggibile.');
+      collectDraft();
+      const touched = new Set(r.lines.map(l => l.item));
+      // Le righe degli articoli letti dal foglio vengono sostituite da quelle lette.
+      draft = draft.filter(l => !touched.has(l.item)).concat(r.lines.map(l => ({ ...l, match: null })));
+      draft.sort((a, b) => a.item - b.item);
+      cur.scan_file = r.scan_file;
+      await saveDraft(false, true);
+      status(document.getElementById('scs'), 'okk', `Letti ${r.lines.length} rotoli dal foglio e salvati: controlla le righe segnate prima di inviare.${r.note ? ' Note: ' + r.note : ''}`);
+    } catch (e) { status(s, 'error', e.message); }
+  };
+
+  const save = document.getElementById('save');
+  if (save) save.onclick = () => saveDraft(false);
+  const send = document.getElementById('send');
+  if (send) send.onclick = () => saveDraft(true);
+
+  if (uff && o.status !== 'chiuso') {
+    api(`/api/orders/${o.id}/label`).then(r => { const el = document.getElementById('clabel'); if (el && !el.value) el.value = r.label; }).catch(() => {});
+    document.getElementById('close').onclick = () => closeOrder(false);
+  }
+  const reopen = document.getElementById('reopen');
+  if (reopen) reopen.onclick = async () => {
+    if (!confirm('Riaprire l\'ordine? I rotoli tornano in giacenza e il DDT viene tolto dal registro.')) return;
+    cur = await api(`/api/orders/${o.id}/reopen`, { method: 'POST' }); renderOrder(o.id);
+  };
+}
+function redrawArts() {
+  document.getElementById('arts').innerHTML = cur.items.map((it, i) => artBlock(it, i, cur.status === 'chiuso')).join('');
+}
+async function saveDraft(submit, quiet) {
+  collectDraft();
+  if (submit) {
+    const n = draft.filter(l => l.roll_input.trim()).length;
+    if (!n) return toast('Inserisci almeno un rotolo prima di inviare.');
+  }
+  try {
+    const keepScan = cur.scan_file;
+    const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, lines: draft.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
+    dirty = false;
+    await renderOrder(o.id);
+    if (keepScan) cur.scan_file = keepScan;
+    if (!quiet) toast(submit ? 'Inviato all\'ufficio ✓' : 'Salvato ✓');
+  } catch (e) { toast(e.message, 5000); }
+}
+async function closeOrder(force) {
+  const cs = document.getElementById('cs');
+  const ddt = document.getElementById('cddt').value.trim(), label = document.getElementById('clabel').value.trim();
+  if (dirty) await saveDraft(false, true);
+  try {
+    const o = await api(`/api/orders/${cur.id}/close`, { body: { ddt, label, force } });
+    toast(`Ordine chiuso: ${o.scaricati} rotoli scaricati dal magazzino`);
+    renderOrder(o.id);
+  } catch (e) {
+    if (e.data?.needForce) {
+      const p = cur.check.problemi, a = cur.check.avvisi;
+      if (confirm(`Ci sono ${p} rotoli da controllare${a ? ` e ${a} avvisi sul numero di rotoli` : ''}.\nChiudere comunque? Verranno scaricati solo i rotoli riconosciuti (✓ o kg diversi).`)) return closeOrder(true);
+      return;
+    }
+    status(document.getElementById('cs') || cs, 'error', e.message);
+  }
+}
+
+// ── Magazzino ──────────────────────────────────────────────
+async function renderStock() {
+  const uff = me.ruolo === 'ufficio';
+  $app.innerHTML = `<div class="eyebrow">Magazzino</div><h1>Giacenza rotoli</h1>
+    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando l'ufficio chiude un ordine. Per ogni prodotto puoi scaricare il registro Excel nello stesso formato di oggi.</p>
+    ${uff ? `<div class="grid2">
+      <div class="card"><h2>Arrivo merce</h2><div class="drop-zone" id="dzs"><div class="label">Packing list del fornitore (PDF)</div><div class="sub">i rotoli con n. e kg entrano in giacenza</div><input type="file"></div><div id="ss"></div></div>
+      <div class="card"><h2>Registro esistente</h2><div class="drop-zone" id="dzx"><div class="label">Importa registro Excel</div><div class="sub">es. KBSSR35ADH55.xlsx — il nome del file è il codice articolo</div><input type="file" multiple></div><div id="xs"></div></div>
+    </div><div id="review"></div>` : ''}
+    <div class="card" style="padding:8px 8px 4px"><div id="pl"><div class="empty">Caricamento…</div></div></div>
+    <div class="card"><h2>Ultimi arrivi</h2><div id="shl" class="muted">…</div></div>`;
+  if (uff) {
+    dropZone(document.getElementById('dzs'), 'application/pdf', readShipment);
+    const dzx = document.getElementById('dzx'), inp = dzx.querySelector('input');
+    inp.accept = '.xlsx';
+    dzx.onclick = e => { if (e.target !== inp) inp.click(); };
+    dzx.ondragover = e => { e.preventDefault(); dzx.classList.add('drag-over'); };
+    dzx.ondragleave = () => dzx.classList.remove('drag-over');
+    dzx.ondrop = e => { e.preventDefault(); dzx.classList.remove('drag-over'); importExcel([...e.dataTransfer.files]); };
+    inp.onchange = () => { importExcel([...inp.files]); inp.value = ''; };
+  }
+  const [prods, shs] = await Promise.all([api('/api/products'), api('/api/shipments')]);
+  const pl = document.getElementById('pl');
+  pl.innerHTML = prods.length ? `<table class="list"><thead><tr><th>Codice</th><th>Prodotto</th><th class="num">Rotoli</th><th class="num">Kg</th><th class="num hide-m">Uscite</th></tr></thead><tbody>
+    ${prods.map(p => `<tr class="click" data-code="${h(p.code)}"><td><b>${h(p.code)}</b></td><td>${h(p.title || p.description || '')} <span class="muted">${h(p.height || '')}</span></td><td class="num">${p.rotoli}</td><td class="num">${fmtKg(p.kg)}</td><td class="num hide-m muted">${p.uscite}</td></tr>`).join('')}
+    </tbody></table>` : `<div class="empty">Nessun prodotto ancora. ${uff ? 'Importa i registri Excel di oggi e carica i packing list dei fornitori.' : ''}</div>`;
+  pl.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/prodotto/' + encodeURIComponent(tr.dataset.code));
+  document.getElementById('shl').innerHTML = shs.length ? `<table class="list"><tbody>${shs.map(s => `<tr><td>${fmtDate(s.date)}</td><td>${h(s.supplier || '')}</td><td>Sped. ${h(s.number || '—')}</td><td class="hide-m">Fatt. ${h(s.invoice || '—')}</td><td class="num">${s.rotoli} rotoli</td><td>${s.file ? `<a href="/api/files/${h(s.file)}" target="_blank">PDF</a>` : ''}</td></tr>`).join('')}</tbody></table>` : 'Nessun arrivo caricato.';
+}
+
+async function importExcel(files) {
+  const xs = document.getElementById('xs');
+  const out = [];
+  for (const file of files) {
+    const code = file.name.replace(/\.xlsx$/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!confirm(`Importare "${file.name}" come registro del prodotto ${code}?\n\nSostituisce giacenza e storico già caricati per questo prodotto (restano solo le uscite fatte con ordini del portale).`)) continue;
+    status(xs, 'loading', `Importazione di ${file.name}…`);
+    try {
+      const f = await readFile(file);
+      const r = await api(`/api/products/${encodeURIComponent(code)}/import`, { body: { file: { data: f.data } } });
+      out.push(`${r.code}: ${r.giacenza} rotoli in giacenza, ${r.uscite} nello storico`);
+    } catch (e) { out.push(`${file.name}: ${e.message}`); }
+  }
+  if (out.length) { await renderStock(); status(document.getElementById('xs'), 'okk', out.join(' · ')); }
+  else status(xs, null);
+}
+
+async function readShipment(file) {
+  const ss = document.getElementById('ss');
+  status(ss, 'loading', `Lettura del packing list "${file.name}"… (può richiedere un minuto)`);
+  try {
+    const f = await readFile(file);
+    const d = await api('/api/shipments/read', { body: { file: f } });
+    status(ss, null);
+    const rv = document.getElementById('review');
+    rv.innerHTML = `<div class="card"><h2>Controlla l'arrivo: ${h(d.fornitore || '')} · spedizione ${h(d.numero_spedizione || '')}</h2>
+      <p class="muted" style="margin-bottom:12px">Fattura ${h(d.numero_fattura || '—')} · arrivo ${h(d.data_arrivo || d.data_spedizione || '—')} · ${h(d.consegna_presso || '')}<br>
+      Abbina ogni articolo al codice Serkios: la prossima volta l'abbinamento viene proposto in automatico. Gli articoli senza codice non vengono caricati.</p>
+      <datalist id="pcodes">${d.prodotti.map(p => `<option value="${h(p.code)}">${h(p.title || '')}</option>`).join('')}</datalist>
+      <table class="list"><thead><tr><th>Articolo fornitore</th><th class="num">Rotoli</th><th class="num">Kg</th><th>Codice Serkios</th></tr></thead><tbody>
+      ${d.articoli.map((a, i) => `<tr><td><b>${h(a.codice_materiale_cliente || a.codice_fornitore || '')}</b><div class="muted">${h(a.descrizione || '')}</div>
+        ${a.gia_presenti ? `<div class="badge b-da_preparare">${a.gia_presenti} rotoli già in archivio (verranno saltati)</div>` : ''}</td>
+        <td class="num">${a.rotoli.length}</td><td class="num">${fmtKg(a.rotoli.reduce((s, r) => s + (r.kg || 0), 0))}</td>
+        <td><input class="t" list="pcodes" data-a="${i}" value="${h(a.suggerito?.code || '')}" placeholder="${a.suggerito?.options ? h(a.suggerito.options.join(' / ')) : 'Es. KBSSR35ADH55'}" style="min-width:160px">
+        ${a.suggerito?.how ? `<div class="muted" style="font-size:12px">proposto da ${h(a.suggerito.how)}</div>` : ''}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn" id="rvx">Annulla</button><button class="btn btn-primary" id="rvok">Carica in giacenza</button></div><div id="rvs"></div></div>`;
+    document.getElementById('rvx').onclick = () => rv.innerHTML = '';
+    document.getElementById('rvok').onclick = async () => {
+      rv.querySelectorAll('input[data-a]').forEach(inp => { d.articoli[Number(inp.dataset.a)].product_code = inp.value.trim().toUpperCase(); });
+      try {
+        const r = await api('/api/shipments', { body: { ...d, prodotti: undefined } });
+        rv.innerHTML = '';
+        await renderStock();
+        status(document.getElementById('ss'), 'okk', `Caricati ${r.added} rotoli in giacenza${r.skipped ? ` (${r.skipped} erano già presenti)` : ''}.`);
+      } catch (e) { status(document.getElementById('rvs'), 'error', e.message); }
+    };
+  } catch (e) { status(ss, 'error', e.message); }
+}
+
+async function renderProduct(code) {
+  const p = await api('/api/products/' + encodeURIComponent(code));
+  const kg = p.stock.reduce((s, r) => s + (r.kg || 0), 0);
+  $app.innerHTML = `<div class="row"><a href="#/magazzino" class="btn btn-link">← Magazzino</a></div>
+    <div class="row" style="align-items:flex-end;margin-bottom:14px"><div><div class="eyebrow">${h(p.code)}${p.supplier_codes.length ? ' · fornitore ' + h(p.supplier_codes.join(', ')) : ''}</div>
+    <h1>${h(p.title || p.description || p.code)} <span class="muted" style="font-size:16px">${h(p.height || '')}</span></h1></div>
+    <span class="spacer"></span><button class="btn btn-primary" id="exp">⬇ Registro Excel</button></div>
+    <div class="summary"><div><b>${p.stock.length}</b><span>rotoli in giacenza</span></div><div><b>${fmtKg(kg)}</b><span>kg in giacenza</span></div></div>
+    <div class="grid2" style="align-items:start">
+      <div class="card"><h2>Giacenza</h2>${p.stock.length ? `<table class="list"><thead><tr><th>Arrivo</th><th>Rotolo</th><th class="num">Kg</th></tr></thead><tbody>
+        ${p.stock.map(r => `<tr><td class="muted">${fmtDate(r.arrival_date)}</td><td>${h(r.roll_no)}</td><td class="num">${fmtKg(r.kg)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nessun rotolo</div>'}</div>
+      <div class="card"><h2>Ultime uscite</h2>${p.out.length ? `<table class="list"><thead><tr><th>Cliente / DDT</th><th>Rotolo</th><th class="num">Kg</th></tr></thead><tbody>
+        ${p.out.slice(0, 120).map(r => `<tr><td>${h(r.out_label || '')}${r.order_id ? ` <a class="muted" href="#/ordine/${r.order_id}">ordine</a>` : ''}</td><td>${h(r.roll_no)}</td><td class="num">${fmtKg(r.kg)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nessuna uscita</div>'}</div>
+    </div>`;
+  document.getElementById('exp').onclick = async () => {
+    const r = await fetch(`/api/products/${encodeURIComponent(code)}/export`, { credentials: 'same-origin' });
+    if (!r.ok) return toast('Export non riuscito');
+    download(await r.blob(), `${code}.xlsx`);
+  };
+}
+
+// ── Avvio ──────────────────────────────────────────────────
+(async () => {
+  try { me = await api('/api/me'); } catch (_) { me = null; }
+  route();
+})();
+</script>
+</body>
+</html>

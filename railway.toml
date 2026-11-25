@@ -1,6 +1,7 @@
 [build]
-builder = "nixpacks"
+builder = "RAILPACK"
 
 [deploy]
 startCommand = "node server.js"
 restartPolicyType = "on_failure"
+healthcheckPath = "/health"
