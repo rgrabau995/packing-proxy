@@ -65,8 +65,9 @@ function buildXlsx(d, o = {}) {
     gMeta: X(0, 2, 2, 'left', { wrap: true }),
   };
 
-  // ── Colonne: A Pallet | B N. Rotolo | C KG | D Note  (larghezza totale ≈ 17 cm, sta in A4 al 100%)
-  const W = [16, 24, 14, 34];
+  // ── Colonne: A N. Rotolo | B KG | C Note  (larghezza totale ≈ 17 cm, sta in A4 al 100%)
+  const W = [24, 18, 46];
+  const COLS = 'ABC';
   const TOTAL_W = W.reduce((a, b) => a + b, 0);
   const lines = (text, width, k = 0.95) => Math.max(1, Math.ceil(String(text || '').length / Math.max(1, Math.floor(width * k))));
 
@@ -83,25 +84,27 @@ function buildXlsx(d, o = {}) {
   const n = (v, st) => ({ t: 'n', v, s: st });
   const f = (v, st) => ({ t: 'f', v, s: st });
   const e = st => ({ t: 'e', s: st });
-  const merge = (r, c1, c2) => merges.push(`${'ABCD'[c1]}${r}:${'ABCD'[c2]}${r}`);
+  const rich = (runs, st) => ({ t: 'r', v: runs, s: st }); // testo con parte in grassetto: [[testo, grassetto], ...]
+  const merge = (r, c1, c2) => merges.push(`${COLS[c1]}${r}:${COLS[c2]}${r}`);
   const fmtKg = v => (v == null || v === '') ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 2 });
 
   // ── Testata ordine
-  let r = addRow(26, { 0: s('PROGRAMMA DI CARICO', S.title), 1: e(S.title), 2: e(S.title),
-    3: s(d.n_ordine ? `Ordine n. ${d.n_ordine}` : '', S.titleR) });
+  let r = addRow(26, { 0: s('PROGRAMMA DI CARICO', S.title), 1: e(S.title),
+    2: s(d.n_ordine ? `Ordine n. ${d.n_ordine}` : '', S.titleR) });
+  merge(r, 0, 1);
+  r = addRow(14, { 0: s('Serkios · Serchio Distribuzione S.r.l. — Via Luigi Luciani 22, 00197 Roma · P.IVA IT05147461007', S.co), 1: e(S.co), 2: e(S.co) });
   merge(r, 0, 2);
-  r = addRow(14, { 0: s('Serkios · Serchio Distribuzione S.r.l. — Via Luigi Luciani 22, 00197 Roma · P.IVA IT05147461007', S.co), 1: e(S.co), 2: e(S.co), 3: e(S.co) });
-  merge(r, 0, 3);
   addRow(6);
 
   const wide = (label, value, st = S.val, minH = 18) => {
-    const ht = Math.max(minH, lines(value, W[1] + W[2] + W[3]) * 14 + 4);
-    const rr = addRow(ht, { 0: s(label, S.lbl), 1: s(value, st), 2: e(st), 3: e(st) });
-    merge(rr, 1, 3);
+    const ht = Math.max(minH, lines(value, W[1] + W[2]) * 14 + 4);
+    const rr = addRow(ht, { 0: s(label, S.lbl), 1: s(value, st), 2: e(st) });
+    merge(rr, 1, 2);
   };
+  // Due dati sulla stessa riga: il secondo sta nella colonna C con l'etichetta in grassetto.
   const pair = (l1, v1, l2, v2, st1 = S.val) => {
-    const ht = Math.max(18, lines(v1, W[1]) * 14 + 4, lines(v2, W[3]) * 14 + 4);
-    addRow(ht, { 0: s(l1, S.lbl), 1: s(v1, st1), 2: s(l2, S.lbl), 3: s(v2, S.val) });
+    const ht = Math.max(18, lines(v1, W[1]) * 14 + 4, lines(`${l2}  ${v2 || ''}`, W[2]) * 14 + 4);
+    addRow(ht, { 0: s(l1, S.lbl), 1: s(v1, st1), 2: rich([[l2 + '   ', true], [v2 || '', false]], S.val) });
   };
   wide('Destinatario', d.destinatario_nome, S.valB);
   wide('Indirizzo', d.destinatario_indirizzo);
@@ -124,23 +127,23 @@ function buildXlsx(d, o = {}) {
     const blockH = titleH + 15 + 16 + nRows * ROW_H + 18;
     if (used + blockH > PAGE_H && used > 60) { breaks.push(rows.length); used = 0; }
 
-    let rr = addRow(titleH, { 0: s(titolo, S.art), 1: e(S.art), 2: e(S.art), 3: e(S.art) });
-    merge(rr, 0, 3);
+    let rr = addRow(titleH, { 0: s(titolo, S.art), 1: e(S.art), 2: e(S.art) });
+    merge(rr, 0, 2);
     const meta = [
       p.gr_mq != null ? `GR/MQ ${p.gr_mq}` : '',
       colli ? `Colli ${colli}` : '',
       p.quantita_kg != null ? `KG ordinati ${fmtKg(p.quantita_kg)}` : '',
     ].filter(Boolean).join('     ·     ');
     if (p.quantita_kg != null) kgOrdinati += Number(p.quantita_kg) || 0; else kgNoti = false;
-    rr = addRow(15, { 0: s(meta, S.meta), 1: e(S.meta), 2: e(S.meta), 3: e(S.meta) });
-    merge(rr, 0, 3);
+    rr = addRow(15, { 0: s(meta, S.meta), 1: e(S.meta), 2: e(S.meta) });
+    merge(rr, 0, 2);
 
     const name = `Articolo${i + 1}`;
-    const hdr = addRow(16, { 0: s('Pallet', S.th), 1: s('N. Rotolo', S.th), 2: s('KG', S.th), 3: s('Note', S.th) });
-    for (let k = 0; k < nRows; k++) addRow(ROW_H, { 0: e(S.cTxt), 1: e(S.cTxt), 2: e(S.cKg), 3: e(S.cNote) });
-    const tot = addRow(18, { 0: s('Totale', S.totL), 1: f(`SUBTOTAL(103,${name}[N. Rotolo])`, S.totN),
-      2: f(`SUBTOTAL(109,${name}[KG])`, S.totKg), 3: e(S.totKg) });
-    tables.push({ name, ref: `A${hdr}:D${tot}` });
+    const hdr = addRow(16, { 0: s('N. Rotolo', S.th), 1: s('KG', S.th), 2: s('Note', S.th) });
+    for (let k = 0; k < nRows; k++) addRow(ROW_H, { 0: e(S.cTxt), 1: e(S.cKg), 2: e(S.cNote) });
+    const tot = addRow(18, { 0: f(`SUBTOTAL(103,${name}[N. Rotolo])`, S.totN),
+      1: f(`SUBTOTAL(109,${name}[KG])`, S.totKg), 2: s('Totale articolo', S.totL) });
+    tables.push({ name, ref: `A${hdr}:C${tot}` });
     totRefs.push(tot);
     addRow(8);
   });
@@ -148,29 +151,30 @@ function buildXlsx(d, o = {}) {
   // ── Totale ordine
   if (used + 26 > PAGE_H) { breaks.push(rows.length); used = 0; }
   const gMeta = kgNoti ? `KG ordinati ${fmtKg(kgOrdinati)}` : '';
-  addRow(26, { 0: s('TOTALE ORDINE', S.gL), 1: f(`SUM(${totRefs.map(t => 'B' + t).join(',')})`, S.gN),
-    2: f(`SUM(${totRefs.map(t => 'C' + t).join(',')})`, S.gKg), 3: s(gMeta, S.gMeta) });
+  addRow(26, { 0: f(`SUM(${totRefs.map(t => 'A' + t).join(',')})`, S.gN),
+    1: f(`SUM(${totRefs.map(t => 'B' + t).join(',')})`, S.gKg), 2: rich([['TOTALE ORDINE', true], [gMeta ? '      ' + gMeta : '', false]], S.gMeta) });
 
   // ── Firme (come sul foglio di oggi)
   if (used + 72 > PAGE_H) { breaks.push(rows.length); used = 0; }
   addRow(12);
-  addRow(32, { 0: s('Preparato da', S.lbl), 1: d.preparato_da ? s(d.preparato_da, S.val) : e(S.val), 2: s('Caricato senza riserve da', S.lbl), 3: e(S.val) });
-  addRow(28, { 0: s('Data', S.lbl), 1: d.data_carico ? s(d.data_carico, S.val) : e(S.val), 2: s('Firma', S.lbl), 3: e(S.val) });
+  addRow(32, { 0: s('Preparato da', S.lbl), 1: d.preparato_da ? s(d.preparato_da, S.val) : e(S.val), 2: rich([['Caricato senza riserve da:', true]], S.val) });
+  addRow(28, { 0: s('Data', S.lbl), 1: d.data_carico ? s(d.data_carico, S.val) : e(S.val), 2: rich([['Firma:', true]], S.val) });
 
   // ── Stringhe condivise
   const sst = [], sstIdx = new Map();
-  const si = v => { if (!sstIdx.has(v)) { sstIdx.set(v, sst.length); sst.push(v); } return sstIdx.get(v); };
+  const si = v => { const k = typeof v === 'string' ? v : 'R:' + JSON.stringify(v); if (!sstIdx.has(k)) { sstIdx.set(k, sst.length); sst.push(v); } return sstIdx.get(k); };
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   let sheetRows = '';
   rows.forEach((row, ri) => {
     const rn = ri + 1;
     let x = `<row r="${rn}" ht="${row.ht}" customHeight="1">`;
-    for (let c = 0; c < 4; c++) {
+    for (let c = 0; c < W.length; c++) {
       const cell = row.cells[c];
       if (!cell) continue;
-      const ref = 'ABCD'[c] + rn;
-      if (cell.t === 's' && cell.v !== '') x += `<c r="${ref}" s="${cell.s}" t="s"><v>${si(cell.v)}</v></c>`;
+      const ref = COLS[c] + rn;
+      if (cell.t === 'r') x += `<c r="${ref}" s="${cell.s}" t="s"><v>${si(cell.v)}</v></c>`;
+      else if (cell.t === 's' && cell.v !== '') x += `<c r="${ref}" s="${cell.s}" t="s"><v>${si(cell.v)}</v></c>`;
       else if (cell.t === 'n') x += `<c r="${ref}" s="${cell.s}"><v>${cell.v}</v></c>`;
       else if (cell.t === 'f') x += `<c r="${ref}" s="${cell.s}"><f>${esc(cell.v)}</f></c>`;
       else x += `<c r="${ref}" s="${cell.s}"/>`;
@@ -192,20 +196,20 @@ function buildXlsx(d, o = {}) {
     + `<pageSetup paperSize="9" orientation="portrait" scale="100"/>`
     + `<headerFooter><oddFooter>${esc(footer)}</oddFooter></headerFooter>`
     + (breaks.length ? `<rowBreaks count="${breaks.length}" manualBreakCount="${breaks.length}">${breaks.map(b => `<brk id="${b}" max="16383" man="1"/>`).join('')}</rowBreaks>` : '')
-    + `<ignoredErrors><ignoredError sqref="A1:B${rows.length + 500}" numberStoredAsText="1"/></ignoredErrors>`
+    + `<ignoredErrors><ignoredError sqref="A1:A${rows.length + 500}" numberStoredAsText="1"/></ignoredErrors>`
     + `<tableParts count="${tables.length}">${tables.map((_, i) => `<tablePart r:id="rId${i + 1}"/>`).join('')}</tableParts>`
     + `</worksheet>`;
 
   const tableXml = (t, i) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="${i + 1}" name="${t.name}" displayName="${t.name}" ref="${t.ref}" totalsRowCount="1">`
-    + `<tableColumns count="4">`
-    + `<tableColumn id="1" name="Pallet" totalsRowLabel="Totale"/>`
-    + `<tableColumn id="2" name="N. Rotolo" totalsRowFunction="count"/>`
-    + `<tableColumn id="3" name="KG" totalsRowFunction="sum"/>`
-    + `<tableColumn id="4" name="Note"/>`
+    + `<tableColumns count="3">`
+    + `<tableColumn id="1" name="N. Rotolo" totalsRowFunction="count"/>`
+    + `<tableColumn id="2" name="KG" totalsRowFunction="sum"/>`
+    + `<tableColumn id="3" name="Note" totalsRowLabel="Totale articolo"/>`
     + `</tableColumns><tableStyleInfo name="TableStyleLight1" showFirstColumn="0" showLastColumn="0" showRowStripes="0" showColumnStripes="0"/></table>`;
 
-  const sstXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sst.length}" uniqueCount="${sst.length}">${sst.map(v => `<si><t xml:space="preserve">${esc(v)}</t></si>`).join('')}</sst>`;
+  const sstXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sst.length}" uniqueCount="${sst.length}">${sst.map(v => typeof v === 'string' ? `<si><t xml:space="preserve">${esc(v)}</t></si>`
+    : `<si>${v.filter(([t]) => t).map(([t, b]) => `<r><rPr>${b ? '<b/>' : ''}<sz val="${b ? 10 : 11}"/><rFont val="Arial"/></rPr><t xml:space="preserve">${esc(t)}</t></r>`).join('')}</si>`).join('')}</sst>`;
   const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
     + `<numFmts count="${numFmts.length}">${numFmts.join('')}</numFmts>`
     + `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills>`
