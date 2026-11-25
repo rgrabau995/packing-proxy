@@ -235,8 +235,10 @@ function download(blob, name) {
 function renderChrome() {
   document.body.classList.toggle('mag', me?.ruolo === 'magazzino');
   const route = location.hash || '#/ordini';
-  // Il magazzino ha una sola pagina: niente barra di navigazione.
-  const links = me?.ruolo === 'ufficio' ? [['#/ordini', 'Ordini'], ['#/magazzino', 'Giacenza']] : [];
+  // Per ora tutti vedono solo gli Ordini: niente barra di navigazione.
+  // La pagina Giacenza è nascosta ma resta raggiungibile dalla logistica all'indirizzo diretto #/magazzino.
+  const SHOW_GIACENZA = false;
+  const links = me?.ruolo === 'ufficio' && SHOW_GIACENZA ? [['#/ordini', 'Ordini'], ['#/magazzino', 'Giacenza']] : [];
   document.getElementById('nav').innerHTML = me ? links.map(([href, t]) => `<a href="${href}" class="${route.startsWith(href) || (href === '#/ordini' && route.startsWith('#/ordine')) || (href === '#/magazzino' && route.startsWith('#/prodotto')) ? 'on' : ''}">${t}</a>`).join('') : '';
   document.getElementById('who').innerHTML = me ? `<span><b>${me.ruolo === 'ufficio' ? 'Logistica' : 'Magazzino'}</b></span><button id="logout">Esci</button>` : '';
   if (me) document.getElementById('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); me = null; renderLogin(); };
