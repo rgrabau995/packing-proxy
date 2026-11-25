@@ -67,6 +67,9 @@ h2{font-size:17px;letter-spacing:-.01em;margin-bottom:10px}
 .btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
 .btn-ok:hover{background:#166640}
 .btn-sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.back-link{display:inline-flex;align-items:center;gap:6px;color:#1f5fbf;font-weight:800;font-size:15px;letter-spacing:.02em;text-decoration:none;
+  padding:10px 14px;margin:0 0 6px -14px;border-radius:10px}
+.back-link:hover{background:#e8f0fb;text-decoration:underline}
 .btn-link{border:none;background:none;color:var(--ink-soft);padding:6px 8px;font-weight:500}
 .btn:focus-visible,input:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 
@@ -355,7 +358,7 @@ function drawOrder() {
   const ro = closed;
   const chk = o.check;
   $app.innerHTML = `
-    <div class="row"><a href="#/ordini" class="btn btn-link">← Torna al menu principale degli ordini</a></div>
+    <div class="row"><a href="#/ordini" class="back-link">← TORNA AL MENU PRINCIPALE DEGLI ORDINI</a></div>
     <div class="row" style="align-items:flex-end;margin-bottom:12px">
       <div><div class="eyebrow">Ordine n. ${h(o.n_ordine || '—')} · ${h(o.data_ordine || '')}</div>
       <h1 style="margin-bottom:2px">${h(o.cliente || 'Cliente')}</h1>
