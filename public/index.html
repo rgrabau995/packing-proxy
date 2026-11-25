@@ -104,11 +104,12 @@ table.list tr.click:hover td{background:#faf8f4}
 /* Ogni riga è una griglia: magazzino = N. rotolo | Kg | ×; logistica = N. rotolo | Kg | Controllo | × */
 .lines tr{display:grid;align-items:center;column-gap:10px;padding:6px 12px}
 .lines tr.l{border-top:1px solid var(--line)}
-.art.mag .lines tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
-.art.uff .lines tr{grid-template-columns:190px 110px minmax(0,1fr) 32px}
+.art.mag .lines tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.art.uff .lines tr{grid-template-columns:190px 150px minmax(0,1fr)}
+/* La × dei rotoli aggiunti sta accanto ai kg: nessuna colonna vuota a destra */
+.kgw{display:flex;align-items:center;gap:4px}.kgw input{flex:1;min-width:0}
 .lines th,.lines td{padding:0;display:block;min-width:0}
 .lines th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);text-align:left;font-weight:700}
-.lines td.c-x{grid-column:-2;grid-row:1}
 .art.mag .lines td.c-st{grid-column:1/-1;grid-row:2;padding-top:4px}
 .lines td.c-st:empty{display:none}
 .lines input{width:100%;padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;font-size:16px;background:#fff}
@@ -141,7 +142,8 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .nav{margin-left:0;order:3;width:100%} .who{font-size:12px}
   .hide-m{display:none}
   .lines tr{padding:6px 10px;column-gap:8px}
-  .art.uff .lines tr{grid-template-columns:minmax(0,1fr) 96px 32px}
+  .art.uff .lines tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  #dirty{display:none}
   .art.uff .lines th.c-st{display:none}
   .art.uff .lines td.c-st{grid-column:1/-1;grid-row:2;padding-top:4px}
   .kv{grid-template-columns:110px 1fr}
@@ -429,12 +431,11 @@ function artBlock(it, i, ro) {
   return `<div class="art ${uff ? 'uff' : 'mag'}" data-item="${i}">
     <div class="art-h"><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
       <div class="m">${h(it.codice || 'codice ?')} · GR/MQ ${h(it.gr_mq ?? '—')} · <b>${h(it.colli ?? '?')} rotoli</b> · ${fmtKg(it.quantita_kg)} kg ordinati</div></div>
-    <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th>${uff ? '<th class="c-st">Controllo</th>' : ''}<th class="c-x"></th></tr></thead><tbody>
+    <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th>${uff ? '<th class="c-st">Controllo</th>' : ''}</tr></thead><tbody>
       ${rows.map(({ l, idx }, k) => `<tr class="l" data-idx="${idx}">
         <td class="c-roll"><input data-f="roll_input" value="${h(l.roll_input)}" ${ro ? 'disabled' : ''} inputmode="numeric" placeholder="es. 726" aria-label="Numero rotolo"></td>
-        <td class="c-kg"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg"></td>
-        <td class="c-st">${uff ? stateView(l.match) : ''}${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td>
-        <td class="c-x">${ro || k < baseRows(it) ? '' : `<button class="x" data-del="${idx}" title="Togli il rotolo aggiunto">×</button>`}</td></tr>`).join('')}
+        <td class="c-kg"><div class="kgw"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg">${ro || k < baseRows(it) ? '' : `<button class="x" data-del="${idx}" title="Togli il rotolo aggiunto">×</button>`}</div></td>
+        <td class="c-st">${uff ? stateView(l.match) : ''}${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td></tr>`).join('')}
     </tbody></table>
     <div class="art-f">${ro ? '' : `<button class="btn btn-sm" data-add="${i}">+ Rotolo</button>`}
       ${uff ? `<span>${c.rotoli ?? 0} rotoli · foglio ${fmtKg(c.kgFoglio)} kg · fornitore ${fmtKg(c.kgFornitore)} kg</span>
