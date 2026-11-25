@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JARVIS — Programma di Carico</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f5fbf'/%3E%3Ctext x='32' y='45' font-family='Arial,Helvetica,sans-serif' font-size='38' font-weight='800' fill='white' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E">
+<title>Programma di Carico</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,7 +30,7 @@ a{color:inherit}
 
 .topbar{background:#171512;color:#f4efe7;position:sticky;top:0;z-index:20}
 .topbar .wrap{max-width:1160px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.mark{width:36px;height:36px;border-radius:10px;background:#1f5fbf;display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff}
+.mark{width:38px;height:38px;border-radius:50%;display:block;object-fit:cover;flex:none}
 .brand{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
 .brand span{color:#8db8f5;font-weight:800;letter-spacing:.04em}
 .brand-sub{font-size:12px;color:#a69e92}
@@ -150,9 +151,9 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
 </head>
 <body>
 <div class="topbar"><div class="wrap">
-  <div class="mark">J</div>
+  <img class="mark" src="icon-180.png" alt="">
   <div>
-    <div class="brand"><span>JARVIS</span> · Programma di Carico</div>
+    <div class="brand">Programma di Carico</div>
     <div class="brand-sub">Serchio Distribuzione S.r.l.</div>
   </div>
   <nav class="nav" id="nav"></nav>
