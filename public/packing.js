@@ -154,8 +154,8 @@ function buildXlsx(d, o = {}) {
   // ── Firme (come sul foglio di oggi)
   if (used + 72 > PAGE_H) { breaks.push(rows.length); used = 0; }
   addRow(12);
-  addRow(32, { 0: s('Preparato da', S.lbl), 1: e(S.val), 2: s('Caricato senza riserve da', S.lbl), 3: e(S.val) });
-  addRow(28, { 0: s('Data carico', S.lbl), 1: e(S.val), 2: s('Firma', S.lbl), 3: e(S.val) });
+  addRow(32, { 0: s('Preparato da', S.lbl), 1: d.preparato_da ? s(d.preparato_da, S.val) : e(S.val), 2: s('Caricato senza riserve da', S.lbl), 3: e(S.val) });
+  addRow(28, { 0: s('Data', S.lbl), 1: d.data_carico ? s(d.data_carico, S.val) : e(S.val), 2: s('Firma', S.lbl), 3: e(S.val) });
 
   // ── Stringhe condivise
   const sst = [], sstIdx = new Map();

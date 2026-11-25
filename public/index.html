@@ -219,9 +219,9 @@ function download(blob, name) {
 function renderChrome() {
   const route = location.hash || '#/ordini';
   const links = [['#/ordini', me?.ruolo === 'ufficio' ? 'Ordini' : 'Da preparare']];
-  if (me?.ruolo === 'ufficio') links.push(['#/magazzino', 'Magazzino']);
+  if (me?.ruolo === 'ufficio') links.push(['#/magazzino', 'Giacenza']);
   document.getElementById('nav').innerHTML = me ? links.map(([href, t]) => `<a href="${href}" class="${route.startsWith(href) || (href === '#/ordini' && route.startsWith('#/ordine')) || (href === '#/magazzino' && route.startsWith('#/prodotto')) ? 'on' : ''}">${t}</a>`).join('') : '';
-  document.getElementById('who').innerHTML = me ? `<span><b>${h(me.nome)}</b> · ${me.ruolo === 'ufficio' ? 'Ufficio' : 'Magazzino'}</span><button id="logout">Esci</button>` : '';
+  document.getElementById('who').innerHTML = me ? `<span><b>${me.ruolo === 'ufficio' ? 'Logistica' : 'Magazzino'}</b></span><button id="logout">Esci</button>` : '';
   if (me) document.getElementById('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); me = null; renderLogin(); };
 }
 async function route() {
@@ -246,20 +246,18 @@ function renderLogin() {
   renderChrome();
   $app.innerHTML = `<div class="login card">
     <div class="eyebrow">Accesso</div><h1>Programma di Carico</h1>
-    <p class="subtitle">Entra con il tuo nome e il codice dell'ufficio o del magazzino.</p>
+    <p class="subtitle">Entra con il codice della logistica o del magazzino.</p>
     <form id="lf" class="row" style="flex-direction:column;align-items:stretch;gap:12px">
-      <label class="f">Nome<input class="t" id="ln" autocomplete="name" value="${h(store.get('pk_nome', ''))}" placeholder="Es. Angela"></label>
       <label class="f">Codice di accesso<input class="t" id="lc" type="password" autocomplete="current-password"></label>
       <button class="btn btn-primary" type="submit">Entra</button>
       <div id="ls"></div>
     </form></div>`;
-  document.getElementById(store.get('pk_nome', '') ? 'lc' : 'ln').focus();
+  document.getElementById('lc').focus();
   document.getElementById('lf').onsubmit = async e => {
     e.preventDefault();
-    const nome = document.getElementById('ln').value.trim(), codice = document.getElementById('lc').value.trim();
+    const codice = document.getElementById('lc').value.trim();
     try {
-      me = await api('/api/login', { body: { nome, codice } });
-      store.set('pk_nome', nome);
+      me = await api('/api/login', { body: { codice } });
       route();
     } catch (err) { status(document.getElementById('ls'), 'error', err.message); }
   };
@@ -269,7 +267,7 @@ function renderLogin() {
 async function renderOrders() {
   const uff = me.ruolo === 'ufficio';
   $app.innerHTML = `<div class="eyebrow">${uff ? 'Logistica' : 'Magazzino'}</div><h1>${uff ? 'Ordini' : 'Ordini da preparare'}</h1>
-    <p class="subtitle">${uff ? 'Carica la conferma d\'ordine: il packing list è subito visibile anche al magazzino. Quando il magazzino conferma, lo stato passa a "Da controllare": fai la revisione con la spedizione del fornitore e chiudi con il DDT.' : 'Apri l\'ordine, scrivi i rotoli caricati (o stampa il foglio e poi carica la foto) e premi "Confermo: preparato". Il resto lo fa l\'ufficio.'}</p>
+    <p class="subtitle">${uff ? 'Carica la conferma d\'ordine: il packing list è subito visibile anche al magazzino. Quando il magazzino conferma, lo stato passa a "Da controllare": fai la revisione con la spedizione del fornitore e chiudi con il DDT.' : 'Apri l\'ordine, scrivi i rotoli caricati (o stampa il foglio e poi carica la foto) e premi "Confermo: preparato". Il resto lo fa la logistica.'}</p>
     ${uff ? `<div class="card">
       <h2>Nuovo ordine</h2>
       <div class="drop-zone" id="dz"><div class="label">Trascina qui la conferma d'ordine (PDF)</div><div class="sub">oppure clicca per selezionarla</div><input type="file"></div>
@@ -305,7 +303,7 @@ async function renderOrders() {
       <td>${h(o.cliente || '')}<div class="muted">${h(o.localita || '')}</div></td>
       <td class="hide-m muted">${h(o.magazzino || '')}</td>
       <td class="num">${o.rotoli} / ${o.colli}</td>
-      <td><span class="badge b-${o.status}">${STATUS[o.status]}</span>${o.ddt ? `<div class="muted">DDT ${h(o.ddt)}</div>` : o.prepared_by && o.status !== 'da_preparare' ? `<div class="muted">da ${h(o.prepared_by)}</div>` : ''}</td></tr>`).join('')}
+      <td><span class="badge b-${o.status}">${STATUS[o.status]}</span>${o.ddt ? `<div class="muted">DDT ${h(o.ddt)}</div>` : o.prepared_by && o.status !== 'da_preparare' ? `<div class="muted">da ${h(o.prepared_by)}${o.prepared_date ? ' · ' + fmtDate(o.prepared_date) : ''}</div>` : ''}</td></tr>`).join('')}
     </tbody></table>`;
   ol.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/ordine/' + tr.dataset.id);
 }
@@ -362,7 +360,6 @@ function drawOrder() {
         <div>
           ${uff && !closed ? `<label class="f">Magazzino di partenza<input class="t" id="omag" value="${h(o.magazzino || '')}" placeholder="Es. TORELLO LANDI"></label>` : `<dl class="kv"><dt>Magazzino</dt><dd>${h(o.magazzino || '—')}</dd></dl>`}
           <dl class="kv" style="margin-top:10px">
-            ${o.prepared_by ? `<dt>Preparato da</dt><dd>${h(o.prepared_by)} · ${fmtDate(o.prepared_at)}</dd>` : ''}
             ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
           </dl>
         </div>
@@ -390,6 +387,13 @@ function drawOrder() {
       <div><b>${fmtKg(o.items.reduce((s, x) => s + (x.quantita_kg || 0), 0))}</b><span>kg ordinati</span></div>
       <div><b style="color:${chk.problemi ? 'var(--err)' : 'var(--ok)'}">${chk.problemi || '✓'}</b><span>${chk.problemi ? 'rotoli da controllare' : 'nessun problema'}${chk.nonVerificabili ? ` · ${chk.nonVerificabili} non verificabili (prodotto senza giacenza)` : ''}</span></div>
     </div>` : ''}
+
+    <div class="card">
+      <div class="grid3">
+        <label class="f">Preparato da<input class="t" id="pby" value="${h(o.prepared_by || '')}" ${ro ? 'disabled' : ''} autocomplete="off"></label>
+        <label class="f">Data<input class="t" id="pdate" type="date" value="${h(o.prepared_date || (ro ? '' : new Date().toISOString().slice(0, 10)))}" ${ro ? 'disabled' : ''}></label>
+      </div>
+    </div>
 
     <div id="arts">${o.items.map((it, i) => artBlock(it, i, ro)).join('')}</div>
 
@@ -454,7 +458,8 @@ function bindOrder() {
   document.getElementById('dl').onclick = () => {
     const extra = Number(document.getElementById('extra').value) || 0; store.set('pk_extra', String(extra));
     const d = { destinatario_nome: o.cliente, destinatario_indirizzo: o.indirizzo, telefono: o.telefono, email: o.email, cod_cliente: o.cod_cliente,
-      n_ordine: o.n_ordine, data_ordine: o.data_ordine, modalita_carico: o.modalita_carico, note_carico: o.note_carico, magazzino_partenza: o.magazzino, prodotti: o.items };
+      n_ordine: o.n_ordine, data_ordine: o.data_ordine, modalita_carico: o.modalita_carico, note_carico: o.note_carico, magazzino_partenza: o.magazzino, prodotti: o.items,
+      preparato_da: document.getElementById('pby')?.value || o.prepared_by || '', data_carico: fmtDate(document.getElementById('pdate')?.value || o.prepared_date || '') };
     download(buildXlsx(d, { magazzino: (document.getElementById('omag')?.value || o.magazzino || '').trim(), extraRows: extra }), `ProgrammaCarico_${(o.n_ordine || 'ordine').replace(/\W/g, '')}.xlsx`);
   };
   const omag = document.getElementById('omag');
@@ -462,6 +467,7 @@ function bindOrder() {
   const del = document.getElementById('del');
   if (del) del.onclick = async () => { if (!confirm('Eliminare questo ordine e i rotoli inseriti?')) return; await api('/api/orders/' + o.id, { method: 'DELETE' }); dirty = false; location.hash = '#/ordini'; };
 
+  ['pby', 'pdate'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', markDirty); });
   const arts = document.getElementById('arts');
   arts.addEventListener('input', e => { if (e.target.matches('input[data-f]')) markDirty(); });
   // Riconoscimento del rotolo appena si esce dal campo.
@@ -546,16 +552,17 @@ async function saveDraft(submit, quiet) {
     const n = draft.filter(l => String(l.roll_input).trim()).length;
     if (!n) return toast('Inserisci almeno un rotolo prima di confermare.');
     const tot = cur.items.reduce((s, i) => s + (i.colli || 0), 0);
-    if (!confirm(`Confermi che l'ordine ${cur.n_ordine || ''} è preparato?\n${n} rotoli scritti su ${tot} ordinati.\nDopo la conferma passa all'ufficio.`)) return;
+    if (!confirm(`Confermi che l'ordine ${cur.n_ordine || ''} è preparato?\n${n} rotoli scritti su ${tot} ordinati.\nDopo la conferma passa alla logistica.`)) return;
   }
   try {
     const keepScan = cur.scan_file;
-    const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, lines: draft.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
+    const pby = document.getElementById('pby'), pdate = document.getElementById('pdate');
+    const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, prepared_by: pby ? pby.value : cur.prepared_by, prepared_date: pdate ? pdate.value : cur.prepared_date, lines: draft.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
     dirty = false;
-    if (submit && me.ruolo !== 'ufficio') { toast('Ordine confermato e passato all\'ufficio ✓'); location.hash = '#/ordini'; return; }
+    if (submit && me.ruolo !== 'ufficio') { toast('Ordine confermato e passato alla logistica ✓'); location.hash = '#/ordini'; return; }
     await renderOrder(o.id);
     if (keepScan) cur.scan_file = keepScan;
-    if (!quiet) toast(submit ? 'Inviato all\'ufficio ✓' : 'Salvato ✓');
+    if (!quiet) toast(submit ? 'Confermato ✓' : 'Salvato ✓');
   } catch (e) { toast(e.message, 5000); }
 }
 async function closeOrder(force) {
@@ -579,8 +586,8 @@ async function closeOrder(force) {
 // ── Magazzino ──────────────────────────────────────────────
 async function renderStock() {
   const uff = me.ruolo === 'ufficio';
-  $app.innerHTML = `<div class="eyebrow">Magazzino</div><h1>Giacenza rotoli</h1>
-    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando l'ufficio chiude un ordine con il DDT. Il registro Excel di ogni prodotto (rotoli usciti e clienti) si scarica già compilato, nello stesso formato di oggi.</p>
+  $app.innerHTML = `<div class="eyebrow">Giacenza</div><h1>Giacenza rotoli</h1>
+    <p class="subtitle">La giacenza si carica dai packing list dei fornitori (es. Mondi) e scende quando la logistica chiude un ordine con il DDT. Il registro Excel di ogni prodotto (rotoli usciti e clienti) si scarica già compilato, nello stesso formato di oggi.</p>
     ${uff ? `<div class="grid2">
       <div class="card"><h2>Arrivo merce</h2><div class="drop-zone" id="dzs"><div class="label">Packing list del fornitore (PDF)</div><div class="sub">i rotoli con n. e kg entrano in giacenza</div><input type="file"></div><div id="ss"></div></div>
       <div class="card"><h2>Storico (facoltativo)</h2><div class="drop-zone" id="dzx"><div class="label">Importa un registro Excel già compilato</div><div class="sub">solo se si vuole lo storico uscite passato nel portale. Il nome del file è il codice articolo (es. KBSSR35ADH55.xlsx)</div><input type="file" multiple></div><div id="xs"></div></div>
@@ -659,7 +666,7 @@ async function readShipment(file) {
 async function renderProduct(code) {
   const p = await api('/api/products/' + encodeURIComponent(code));
   const kg = p.stock.reduce((s, r) => s + (r.kg || 0), 0);
-  $app.innerHTML = `<div class="row"><a href="#/magazzino" class="btn btn-link">← Magazzino</a></div>
+  $app.innerHTML = `<div class="row"><a href="#/magazzino" class="btn btn-link">← Giacenza</a></div>
     <div class="row" style="align-items:flex-end;margin-bottom:14px"><div><div class="eyebrow">${h(p.code)}${p.supplier_codes.length ? ' · fornitore ' + h(p.supplier_codes.join(', ')) : ''}</div>
     <h1>${h(p.title || p.description || p.code)} <span class="muted" style="font-size:16px">${h(p.height || '')}</span></h1></div>
     <span class="spacer"></span><button class="btn btn-primary" id="exp">⬇ Registro Excel</button></div>

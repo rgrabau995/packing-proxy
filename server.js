@@ -1,6 +1,6 @@
 // Portale Programma di Carico — Serchio Distribuzione / Serkios
-// Ufficio (Angela): carica conferme d'ordine e spedizioni fornitore, controlla, chiude con il DDT.
-// Magazzino (Daniele): vede gli ordini da preparare, inserisce i rotoli (online o foto del foglio).
+// Logistica (ruolo 'ufficio'): carica conferme d'ordine e spedizioni fornitore, controlla, chiude con il DDT.
+// Magazzino: vede gli ordini da preparare, inserisce i rotoli (online o foto del foglio) e conferma.
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -14,7 +14,8 @@ const app = express();
 app.use(express.json({ limit: '40mb' }));
 
 // ── Accesso ─────────────────────────────────────────────────
-// UFFICIO_CODE (o il vecchio ACCESS_CODE) e MAGAZZINO_CODE si impostano su Railway.
+// UFFICIO_CODE (o il vecchio ACCESS_CODE) = logistica, MAGAZZINO_CODE = magazzino. Si impostano su Railway.
+const ROLE_LABEL = { ufficio: 'Logistica', magazzino: 'Magazzino' };
 const CODES = { ufficio: process.env.UFFICIO_CODE || process.env.ACCESS_CODE || '', magazzino: process.env.MAGAZZINO_CODE || '' };
 const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('pk|' + CODES.ufficio + '|' + CODES.magazzino + '|' + (process.env.ANTHROPIC_API_KEY || '')).digest('hex');
 const DEV_OPEN = !CODES.ufficio && !CODES.magazzino && !process.env.RAILWAY_ENVIRONMENT; // solo in locale senza codici
@@ -33,7 +34,7 @@ function readSession(req) {
 const auth = (...roles) => (req, res, next) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: 'Accesso scaduto: rientrare con il proprio codice.' });
-  if (roles.length && !roles.includes(s.r)) return res.status(403).json({ error: 'Operazione riservata all\'ufficio.' });
+  if (roles.length && !roles.includes(s.r)) return res.status(403).json({ error: 'Operazione riservata alla logistica.' });
   req.user = s; next();
 };
 const ah = fn => (req, res) => Promise.resolve().then(() => fn(req, res)).catch(e => {
@@ -43,20 +44,19 @@ const ah = fn => (req, res) => Promise.resolve().then(() => fn(req, res)).catch(
 const fail = (status, msg) => Object.assign(new Error(msg), { status });
 
 app.post('/api/login', (req, res) => {
-  const { nome, codice } = req.body || {};
-  if (!nome || !String(nome).trim()) return res.status(400).json({ error: 'Scrivi il tuo nome.' });
+  const { codice } = req.body || {};
   let role = null;
   if (DEV_OPEN) role = String(codice).trim().toLowerCase() === 'magazzino' ? 'magazzino' : 'ufficio';
   else if (CODES.ufficio && codice && sameCode(codice, CODES.ufficio)) role = 'ufficio';
   else if (CODES.magazzino && codice && sameCode(codice, CODES.magazzino)) role = 'magazzino';
   if (!role) return res.status(401).json({ error: 'Codice di accesso errato.' });
   const days = 30;
-  const p = { n: String(nome).trim().slice(0, 60), r: role, exp: Date.now() + days * 86400000 };
+  const p = { n: ROLE_LABEL[role], r: role, exp: Date.now() + days * 86400000 };
   res.setHeader('Set-Cookie', `pk=${sign(p)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${days * 86400}${process.env.RAILWAY_ENVIRONMENT ? '; Secure' : ''}`);
   res.json({ nome: p.n, ruolo: role });
 });
 app.post('/api/logout', (_, res) => { res.setHeader('Set-Cookie', 'pk=; Path=/; Max-Age=0'); res.json({ ok: true }); });
-app.get('/api/me', (req, res) => { const s = readSession(req); res.json(s ? { nome: s.n, ruolo: s.r } : null); });
+app.get('/api/me', (req, res) => { const s = readSession(req); res.json(s ? { nome: ROLE_LABEL[s.r], ruolo: s.r } : null); });
 
 // ── File caricati (conferme, foto del foglio, spedizioni) ──
 const FILES = path.join(DATA_DIR, 'files');
@@ -86,7 +86,7 @@ const getOrder = id => {
 const getLines = id => db.prepare('SELECT * FROM order_lines WHERE order_id = ? ORDER BY item, pos').all(Number(id));
 // Il magazzino vede solo l'ordine da preparare e le sue righe: i controlli sono dell'ufficio.
 const forWarehouse = (req, o) => {
-  if (req.user.r !== 'ufficio' && o.status !== 'da_preparare') throw fail(403, 'Ordine già confermato e passato all\'ufficio.');
+  if (req.user.r !== 'ufficio' && o.status !== 'da_preparare') throw fail(403, 'Ordine già confermato e passato alla logistica.');
 };
 function orderView(o, role = 'ufficio') {
   const lines = getLines(o.id);
@@ -105,7 +105,7 @@ app.get('/api/orders', auth(), (req, res) => {
     const items = JSON.parse(o.items);
     return { id: o.id, n_ordine: o.n_ordine, data_ordine: o.data_ordine, cliente: o.cliente, localita: o.localita, status: o.status,
       magazzino: o.magazzino, rotoli: o.rotoli, colli: items.reduce((s, i) => s + (i.colli || 0), 0), articoli: items.length,
-      prepared_by: o.prepared_by, ddt: o.ddt, created_at: o.created_at };
+      prepared_by: o.prepared_by, prepared_date: o.prepared_date, ddt: o.ddt, created_at: o.created_at };
   }));
 });
 
@@ -127,7 +127,7 @@ app.get('/api/orders/:id', auth(), ah((req, res) => {
   res.json(orderView(o, req.user.r));
 }));
 
-// Dati dell'ordine modificabili dall'ufficio (magazzino di partenza, cliente, articoli...).
+// Dati dell'ordine modificabili dalla logistica (magazzino di partenza, cliente, articoli...).
 app.patch('/api/orders/:id', auth('ufficio'), ah((req, res) => {
   const o = getOrder(req.params.id);
   const fields = ['n_ordine', 'data_ordine', 'cliente', 'indirizzo', 'localita', 'telefono', 'email', 'cod_cliente', 'modalita_carico', 'note_carico', 'magazzino'];
@@ -145,7 +145,7 @@ app.delete('/api/orders/:id', auth('ufficio'), ah((req, res) => {
   res.json({ ok: true });
 }));
 
-// Salva i rotoli inseriti (bozza o invio all'ufficio).
+// Salva i rotoli inseriti (bozza o conferma del magazzino).
 const saveLines = tx((orderId, lines) => {
   db.prepare('DELETE FROM order_lines WHERE order_id = ?').run(orderId);
   const ins = db.prepare('INSERT INTO order_lines (order_id, item, pos, pallet, roll_input, kg_input, note) VALUES (?,?,?,?,?,?,?)');
@@ -161,10 +161,16 @@ const saveLines = tx((orderId, lines) => {
 });
 app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
-  if (o.status === 'chiuso') throw fail(409, 'Ordine già chiuso dall\'ufficio: non è più modificabile.');
+  if (o.status === 'chiuso') throw fail(409, 'Ordine già chiuso dalla logistica: non è più modificabile.');
   forWarehouse(req, o);
   saveLines(o.id, Array.isArray(req.body?.lines) ? req.body.lines : []);
-  if (req.body?.submit) db.prepare(`UPDATE orders SET status = 'preparato', prepared_by = ?, prepared_at = datetime('now') WHERE id = ?`).run(req.user.n, o.id);
+  // "Preparato da" e data: scritti liberamente da chi prepara (la data dal calendario).
+  const b = req.body || {};
+  if ('prepared_by' in b || 'prepared_date' in b) {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.prepared_date || '')) ? b.prepared_date : null;
+    db.prepare('UPDATE orders SET prepared_by = ?, prepared_date = ? WHERE id = ?').run(String(b.prepared_by || '').trim().slice(0, 80) || null, date, o.id);
+  }
+  if (b.submit) db.prepare(`UPDATE orders SET status = 'preparato', prepared_at = datetime('now') WHERE id = ?`).run(o.id);
   res.json(orderView(getOrder(o.id), req.user.r));
 }));
 
@@ -203,7 +209,7 @@ app.post('/api/orders/:id/scan', auth(), ah(async (req, res) => {
   res.json({ lines, note: r.note, scan_file: fname });
 }));
 
-// Chiusura (ufficio): i rotoli escono dalla giacenza e finiscono nello storico con cliente e DDT.
+// Chiusura (logistica): i rotoli escono dalla giacenza e finiscono nello storico con cliente e DDT.
 const closeOrder = tx((o, label, ddt, user) => {
   const check = checkOrder(o, getLines(o.id));
   let seq = (db.prepare('SELECT MAX(seq) m FROM rolls').get().m || 0);
@@ -239,7 +245,7 @@ app.post('/api/orders/:id/reopen', auth('ufficio'), ah((req, res) => {
   })();
   res.json(orderView(getOrder(o.id)));
 }));
-// L'ufficio rimanda l'ordine al magazzino (es. rotoli da correggere): torna "da preparare".
+// La logistica rimanda l'ordine al magazzino (es. rotoli da correggere): torna "da preparare".
 app.post('/api/orders/:id/back', auth('ufficio'), ah((req, res) => {
   const o = getOrder(req.params.id);
   if (o.status === 'chiuso') throw fail(409, 'Ordine chiuso: prima riaprirlo.');
