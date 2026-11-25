@@ -340,7 +340,7 @@ async function renderOrder(id) {
   // Righe vuote pronte: tante quanti i colli dell'ordine.
   cur.items.forEach((it, i) => {
     const have = draft.filter(l => l.item === i).length;
-    for (let k = have; k < Math.max(it.colli || 1, have ? have : 0); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null });
+    for (let k = have; k < baseRows(it); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null });
   });
   dirty = false;
   drawOrder();
@@ -417,6 +417,9 @@ function drawOrder() {
   bindOrder();
 }
 
+// Le righe dei rotoli della conferma sono fisse; solo quelle aggiunte con "+ Rotolo" si possono togliere.
+function baseRows(it) { return Math.max(1, parseInt(it.colli, 10) || 0); }
+
 function artBlock(it, i, ro) {
   const uff = me.ruolo === 'ufficio';
   const c = (cur.check && cur.check.items[i]) || {};
@@ -425,11 +428,11 @@ function artBlock(it, i, ro) {
     <div class="art-h"><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
       <div class="m">${h(it.codice || 'codice ?')} · GR/MQ ${h(it.gr_mq ?? '—')} · <b>${h(it.colli ?? '?')} rotoli</b> · ${fmtKg(it.quantita_kg)} kg ordinati</div></div>
     <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th>${uff ? '<th class="c-st">Controllo</th>' : ''}<th class="c-x"></th></tr></thead><tbody>
-      ${rows.map(({ l, idx }) => `<tr class="l" data-idx="${idx}">
+      ${rows.map(({ l, idx }, k) => `<tr class="l" data-idx="${idx}">
         <td class="c-roll"><input data-f="roll_input" value="${h(l.roll_input)}" ${ro ? 'disabled' : ''} inputmode="numeric" placeholder="es. 726" aria-label="Numero rotolo"></td>
         <td class="c-kg"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg"></td>
         <td class="c-st">${uff ? stateView(l.match) : ''}${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td>
-        <td class="c-x">${ro ? '' : `<button class="x" data-del="${idx}" title="Togli riga">×</button>`}</td></tr>`).join('')}
+        <td class="c-x">${ro || k < baseRows(it) ? '' : `<button class="x" data-del="${idx}" title="Togli il rotolo aggiunto">×</button>`}</td></tr>`).join('')}
     </tbody></table>
     <div class="art-f">${ro ? '' : `<button class="btn btn-sm" data-add="${i}">+ Rotolo</button>`}
       ${uff ? `<span>${c.rotoli ?? 0} rotoli · foglio ${fmtKg(c.kgFoglio)} kg · fornitore ${fmtKg(c.kgFornitore)} kg</span>
