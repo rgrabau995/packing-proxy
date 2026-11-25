@@ -1,6 +1,6 @@
 # JARVIS — Portale Programma di Carico (Serchio Distribuzione)
 
-Portale web (Railway) che sostituisce il giro di fogli tra logistica e magazzino.
+Portale web su Railway — **https://jarvis-logistics.up.railway.app** — che sostituisce il giro di fogli tra logistica e magazzino.
 
 ## Flusso
 
