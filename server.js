@@ -373,7 +373,8 @@ app.get('/api/shipments', auth('ufficio'), (req, res) => {
 // ── Pagine ──────────────────────────────────────────────────
 app.get('/api/config', (_, res) => res.json({ codeRequired: !DEV_OPEN, ai: ai.aiReady() }));
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
-app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }));
+// La pagina e gli script si ricaricano sempre: dopo un aggiornamento nessuno resta con la versione vecchia.
+app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html', etag: true, setHeaders: res => res.setHeader('Cache-Control', 'no-cache') }));
 
 if (require.main === module) {
   app.listen(process.env.PORT || 3000, () => console.log('Portale avviato su', process.env.PORT || 3000, '— dati in', DATA_DIR));

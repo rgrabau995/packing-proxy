@@ -608,7 +608,7 @@ async function renderStock() {
   const pl = document.getElementById('pl');
   pl.innerHTML = prods.length ? `<table class="list"><thead><tr><th>Codice</th><th>Prodotto</th><th class="num">Rotoli</th><th class="num">Kg</th><th class="num hide-m">Uscite</th></tr></thead><tbody>
     ${prods.map(p => `<tr class="click" data-code="${h(p.code)}"><td><b>${h(p.code)}</b></td><td>${h(p.title || p.description || '')} <span class="muted">${h(p.height || '')}</span></td><td class="num">${p.rotoli}</td><td class="num">${fmtKg(p.kg)}</td><td class="num hide-m muted">${p.uscite}</td></tr>`).join('')}
-    </tbody></table>` : `<div class="empty">Nessun prodotto ancora. ${uff ? 'Importa i registri Excel di oggi e carica i packing list dei fornitori.' : ''}</div>`;
+    </tbody></table>` : `<div class="empty">Nessun prodotto ancora: carica il packing list di un fornitore in "Arrivo merce".</div>`;
   pl.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/prodotto/' + encodeURIComponent(tr.dataset.code));
   document.getElementById('shl').innerHTML = shs.length ? `<table class="list"><tbody>${shs.map(s => `<tr><td>${fmtDate(s.date)}</td><td>${h(s.supplier || '')}</td><td>Sped. ${h(s.number || '—')}</td><td class="hide-m">Fatt. ${h(s.invoice || '—')}</td><td class="num">${s.rotoli} rotoli</td><td>${s.file ? `<a href="/api/files/${h(s.file)}" target="_blank">PDF</a>` : ''}</td></tr>`).join('')}</tbody></table>` : 'Nessun arrivo caricato.';
 }
