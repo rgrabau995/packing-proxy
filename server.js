@@ -70,7 +70,7 @@ function saveFile(f, prefix) {
   fs.writeFileSync(path.join(FILES, name), Buffer.from(f.data, 'base64'));
   return name;
 }
-app.get('/api/files/:name', auth(), (req, res) => {
+app.get('/api/files/:name', auth('ufficio'), (req, res) => {
   const name = path.basename(req.params.name);
   const p = path.join(FILES, name);
   if (!fs.existsSync(p)) return res.status(404).end();
@@ -84,15 +84,23 @@ const getOrder = id => {
   return o;
 };
 const getLines = id => db.prepare('SELECT * FROM order_lines WHERE order_id = ? ORDER BY item, pos').all(Number(id));
-function orderView(o) {
+// Il magazzino vede solo l'ordine da preparare e le sue righe: i controlli sono dell'ufficio.
+const forWarehouse = (req, o) => {
+  if (req.user.r !== 'ufficio' && o.status !== 'da_preparare') throw fail(403, 'Ordine già confermato e passato all\'ufficio.');
+};
+function orderView(o, role = 'ufficio') {
   const lines = getLines(o.id);
+  if (role !== 'ufficio') {
+    const { file, scan_file, ddt, closed_by, closed_at, ...rest } = o;
+    return { ...rest, items: JSON.parse(o.items), lines: lines.map(({ roll_id, ...l }) => l) };
+  }
   const check = checkOrder(o, lines);
   return { ...o, items: JSON.parse(o.items), lines: check.lines, check: { items: check.items, problemi: check.problemi, avvisi: check.avvisi, nonVerificabili: check.nonVerificabili } };
 }
 
 app.get('/api/orders', auth(), (req, res) => {
   const rows = db.prepare(`SELECT o.*, (SELECT COUNT(*) FROM order_lines l WHERE l.order_id = o.id AND TRIM(COALESCE(l.roll_input,'')) != '') AS rotoli
-    FROM orders o ORDER BY CASE o.status WHEN 'da_preparare' THEN 0 WHEN 'preparato' THEN 1 ELSE 2 END, o.id DESC LIMIT 300`).all();
+    FROM orders o ${req.user.r === 'ufficio' ? '' : "WHERE o.status = 'da_preparare'"} ORDER BY CASE o.status WHEN 'da_preparare' THEN 0 WHEN 'preparato' THEN 1 ELSE 2 END, o.id DESC LIMIT 300`).all();
   res.json(rows.map(o => {
     const items = JSON.parse(o.items);
     return { id: o.id, n_ordine: o.n_ordine, data_ordine: o.data_ordine, cliente: o.cliente, localita: o.localita, status: o.status,
@@ -113,7 +121,11 @@ app.post('/api/orders', auth('ufficio'), ah(async (req, res) => {
   res.json(orderView(getOrder(r.lastInsertRowid)));
 }));
 
-app.get('/api/orders/:id', auth(), ah((req, res) => res.json(orderView(getOrder(req.params.id)))));
+app.get('/api/orders/:id', auth(), ah((req, res) => {
+  const o = getOrder(req.params.id);
+  forWarehouse(req, o);
+  res.json(orderView(o, req.user.r));
+}));
 
 // Dati dell'ordine modificabili dall'ufficio (magazzino di partenza, cliente, articoli...).
 app.patch('/api/orders/:id', auth('ufficio'), ah((req, res) => {
@@ -150,13 +162,14 @@ const saveLines = tx((orderId, lines) => {
 app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
   if (o.status === 'chiuso') throw fail(409, 'Ordine già chiuso dall\'ufficio: non è più modificabile.');
+  forWarehouse(req, o);
   saveLines(o.id, Array.isArray(req.body?.lines) ? req.body.lines : []);
   if (req.body?.submit) db.prepare(`UPDATE orders SET status = 'preparato', prepared_by = ?, prepared_at = datetime('now') WHERE id = ?`).run(req.user.n, o.id);
-  res.json(orderView(getOrder(o.id)));
+  res.json(orderView(getOrder(o.id), req.user.r));
 }));
 
 // Riconosce al volo un rotolo mentre lo si scrive.
-app.get('/api/orders/:id/resolve', auth(), ah((req, res) => {
+app.get('/api/orders/:id/resolve', auth('ufficio'), ah((req, res) => {
   const o = getOrder(req.params.id);
   const it = JSON.parse(o.items)[Number(req.query.item) || 0] || {};
   res.json(resolve(it.codice, req.query.q, o.id, req.query.kg ? Number(String(req.query.kg).replace(',', '.')) : null));
@@ -165,6 +178,7 @@ app.get('/api/orders/:id/resolve', auth(), ah((req, res) => {
 // Legge la foto / scansione del foglio compilato a mano. Non salva: le righe tornano alla pagina da controllare.
 app.post('/api/orders/:id/scan', auth(), ah(async (req, res) => {
   const o = getOrder(req.params.id);
+  forWarehouse(req, o);
   const { file } = req.body || {};
   checkFile(file);
   const items = JSON.parse(o.items);
@@ -225,6 +239,13 @@ app.post('/api/orders/:id/reopen', auth('ufficio'), ah((req, res) => {
   })();
   res.json(orderView(getOrder(o.id)));
 }));
+// L'ufficio rimanda l'ordine al magazzino (es. rotoli da correggere): torna "da preparare".
+app.post('/api/orders/:id/back', auth('ufficio'), ah((req, res) => {
+  const o = getOrder(req.params.id);
+  if (o.status === 'chiuso') throw fail(409, 'Ordine chiuso: prima riaprirlo.');
+  db.prepare(`UPDATE orders SET status = 'da_preparare' WHERE id = ?`).run(o.id);
+  res.json(orderView(getOrder(o.id)));
+}));
 // Suggerisce come si chiama il cliente nel registro (com'è stato scritto le volte precedenti).
 app.get('/api/orders/:id/label', auth('ufficio'), ah((req, res) => {
   const o = getOrder(req.params.id);
@@ -239,14 +260,14 @@ app.get('/api/orders/:id/label', auth('ufficio'), ah((req, res) => {
 }));
 
 // ── Magazzino: prodotti e giacenza ──────────────────────────
-app.get('/api/products', auth(), (req, res) => {
+app.get('/api/products', auth('ufficio'), (req, res) => {
   res.json(db.prepare(`SELECT p.*,
     (SELECT COUNT(*) FROM rolls r WHERE r.product_code = p.code AND r.status = 'stock') AS rotoli,
     (SELECT COALESCE(SUM(kg),0) FROM rolls r WHERE r.product_code = p.code AND r.status = 'stock') AS kg,
     (SELECT COUNT(*) FROM rolls r WHERE r.product_code = p.code AND r.status = 'out') AS uscite
     FROM products p ORDER BY p.code`).all());
 });
-app.get('/api/products/:code', auth(), ah((req, res) => {
+app.get('/api/products/:code', auth('ufficio'), ah((req, res) => {
   const p = db.prepare('SELECT * FROM products WHERE code = ?').get(req.params.code);
   if (!p) throw fail(404, 'Prodotto non trovato.');
   const stock = db.prepare(`SELECT * FROM rolls WHERE product_code = ? AND status = 'stock' ORDER BY arrival_date, id`).all(p.code);
@@ -271,7 +292,7 @@ app.post('/api/products/:code/import', auth('ufficio'), ah((req, res) => {
   try { res.json(importRegister(code, Buffer.from(f.data, 'base64'))); }
   catch (e) { throw e.status ? e : fail(422, 'Excel non leggibile: ' + e.message); }
 }));
-app.get('/api/products/:code/export', auth(), ah((req, res) => {
+app.get('/api/products/:code/export', auth('ufficio'), ah((req, res) => {
   const buf = exportRegister(req.params.code);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${req.params.code.replace(/[^\w-]/g, '')}.xlsx"`);
@@ -339,7 +360,7 @@ app.post('/api/shipments', auth('ufficio'), ah((req, res) => {
   })();
   res.json(out);
 }));
-app.get('/api/shipments', auth(), (req, res) => {
+app.get('/api/shipments', auth('ufficio'), (req, res) => {
   res.json(db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM rolls r WHERE r.shipment_id = s.id) AS rotoli FROM shipments s ORDER BY id DESC LIMIT 100`).all());
 });
 
