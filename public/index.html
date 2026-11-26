@@ -104,7 +104,8 @@ table.list tr.click:hover td{background:#faf8f4}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .b-da_preparare{background:var(--warn-bg);color:var(--warn)}
-.b-preparato{background:var(--info-bg);color:var(--info)}
+.b-preparato{background:var(--ok-bg);color:var(--ok)}
+.b-info{background:var(--info-bg);color:var(--info)}
 .b-chiuso{background:var(--ok-bg);color:var(--ok)}
 
 .art{border:1px solid var(--line);border-radius:13px;margin-bottom:14px;overflow:hidden}
@@ -228,7 +229,7 @@ const $app = document.getElementById('app');
 const h = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmtKg = v => v == null || v === '' ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 1 });
 const fmtDate = iso => { if (!iso) return ''; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
-const STATUS = { da_preparare: 'Da preparare', preparato: 'Preparato', chiuso: 'Chiuso' };
+const STATUS = { da_preparare: 'Da preparare', preparato: 'Confermato', chiuso: 'Chiuso' };
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
 let me = null;
 
@@ -354,7 +355,7 @@ function renderLogin() {
 async function renderOrders() {
   const uff = me.ruolo === 'ufficio';
   $app.innerHTML = `<div class="eyebrow">Programma di carico</div><h1>Ordini</h1>
-    <p class="subtitle">Apri l'ordine, scrivi i rotoli caricati e premi "Confermo: preparato". Un ordine confermato si cambia con "Modifica ordine" e si stampa con "Stampa ordine".</p>
+    <p class="subtitle">Il magazzino scrive i rotoli caricati e preme "Confermo: preparato". Un ordine confermato si riapre con "Modifica" e si stampa con "Stampa ordine".</p>
     ${uff ? `<div class="card">
       <h2>Nuovo ordine</h2>
       <div class="drop-zone" id="dz"><div class="label">Trascina qui la conferma d'ordine (PDF)</div><div class="sub">oppure clicca per selezionarla</div><input type="file"></div>
@@ -390,9 +391,13 @@ async function renderOrders() {
       <td>${h(o.cliente || '')}<div class="muted">${h(o.localita || '')}</div></td>
       <td class="hide-m muted">${h(o.magazzino || '')}</td>
       <td class="num">${o.rotoli} / ${o.colli}</td>
-      <td><span class="badge b-${o.status}">${STATUS[o.status]}</span>${o.ddt ? `<div class="muted">DDT ${h(o.ddt)}</div>` : o.prepared_by && o.status !== 'da_preparare' ? `<div class="muted">da ${h(o.prepared_by)}${o.prepared_date ? ' · ' + fmtDate(o.prepared_date) : ''}</div>` : ''}</td></tr>`).join('')}
+      <td><span class="badge b-${o.status}">${STATUS[o.status]}</span>${o.status === 'preparato' ? ` <button class="btn btn-sm" data-edit="${o.id}" title="Riapre l'ordine per modificarlo">✏️ Modifica</button>` : ''}${o.ddt ? `<div class="muted">DDT ${h(o.ddt)}</div>` : o.prepared_by && o.status !== 'da_preparare' ? `<div class="muted">da ${h(o.prepared_by)}${o.prepared_date ? ' · ' + fmtDate(o.prepared_date) : ''}</div>` : ''}</td></tr>`).join('')}
     </tbody></table>`;
-  ol.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => location.hash = '#/ordine/' + tr.dataset.id);
+  ol.querySelectorAll('tr.click').forEach(tr => tr.onclick = e => { if (!e.target.closest('[data-edit]')) location.hash = '#/ordine/' + tr.dataset.id; });
+  ol.querySelectorAll('[data-edit]').forEach(b => b.onclick = async () => {
+    try { await api(`/api/orders/${b.dataset.edit}/edit`, { method: 'POST' }); toast('Ordine riaperto: ora si può modificare'); location.hash = '#/ordine/' + b.dataset.edit; }
+    catch (e) { toast(e.message, 5000); }
+  });
 }
 
 // ── Dettaglio ordine ───────────────────────────────────────
@@ -475,7 +480,7 @@ function drawOrder() {
     ${!ro ? `<div class="actions-space"></div><div class="sticky-actions"><div class="sa-in">
       <span class="muted" id="dirty"></span>
       <button class="btn" id="save">Salva</button>
-      <button class="btn btn-ok" id="send">✓ Confermo: preparato</button>
+      ${!uff ? `<button class="btn btn-ok" id="send">✓ Confermo: preparato</button>` : ''}
     </div></div>` : ''}`;
   bindOrder();
 }
@@ -790,7 +795,7 @@ async function drawArrivals() {
         <td><b>${h(a.product_code)}</b>${a.supplier_code ? `<div class="muted" style="font-size:12px">${h(a.supplier_code)}</div>` : ''}</td>
         <td class="num">${fmtKg(a.kg)}</td><td class="hide-m">${h(a.our_order || '')}${a.supplier_conf ? `<div class="muted" style="font-size:12px">conf. ${h(a.supplier_conf)}</div>` : ''}</td>
         <td class="hide-m muted">${h(a.supplier || '')}${a.source === 'excel' ? ' <span class="muted">(Excel)</span>' : ''}</td>
-        <td>${a.status === 'arrivato' ? `<span class="badge b-chiuso">Arrivato</span>` : late ? `<span class="badge b-da_preparare">Data passata</span>` : `<span class="badge b-preparato">In arrivo</span>`}</td>
+        <td>${a.status === 'arrivato' ? `<span class="badge b-chiuso">Arrivato</span>` : late ? `<span class="badge b-da_preparare">Data passata</span>` : `<span class="badge b-info">In arrivo</span>`}</td>
         <td style="white-space:nowrap">${a.status === 'in_arrivo' ? `<button class="btn btn-sm" data-arr="${a.id}">✓ Arrivato</button> <button class="x" data-delarr="${a.id}" title="Elimina arrivo">×</button>` : ''}</td></tr>`;
     }).join('')}</tbody></table>`;
   al.querySelectorAll('[data-arr]').forEach(b => b.onclick = async () => {

@@ -166,6 +166,7 @@ const saveLines = tx((orderId, lines) => {
 app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
   editable(o);
+  if (req.body?.submit && req.user.r === 'ufficio') throw fail(403, 'La conferma "preparato" la dà il magazzino.');
   saveLines(o.id, Array.isArray(req.body?.lines) ? req.body.lines : []);
   // "Preparato da" e data: scritti liberamente da chi prepara (la data dal calendario).
   const b = req.body || {};
@@ -173,7 +174,9 @@ app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.prepared_date || '')) ? b.prepared_date : null;
     db.prepare('UPDATE orders SET prepared_by = ?, prepared_date = ? WHERE id = ?').run(String(b.prepared_by || '').trim().slice(0, 80) || null, date, o.id);
   }
-  if (b.submit) db.prepare(`UPDATE orders SET status = 'preparato', prepared_at = datetime('now') WHERE id = ?`).run(o.id);
+  if (b.submit) {
+    db.prepare(`UPDATE orders SET status = 'preparato', prepared_at = datetime('now') WHERE id = ?`).run(o.id);
+  }
   res.json(orderView(getOrder(o.id), req.user.r));
 }));
 
