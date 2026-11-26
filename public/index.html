@@ -435,8 +435,6 @@ function drawOrder() {
         ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
       </dl>
       ${uff ? `<div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-        <button class="btn" id="dl">⬇ Foglio da stampare (.xlsx)</button>
-        <label class="muted row extra-wrap" style="gap:6px">righe vuote in più <input class="t" id="extra" type="number" min="0" max="30" value="${h(store.get('pk_extra', '2'))}" style="width:64px;padding:6px 8px"></label>
         <span class="spacer"></span>
         ${o.file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.file)}" target="_blank">Conferma PDF</a>` : ''}
         ${o.scan_file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.scan_file)}" target="_blank">Foglio caricato</a>` : ''}
@@ -444,12 +442,7 @@ function drawOrder() {
       </div>` : ''}
     </div>
 
-    ${!ro && uff ? `<div class="card">
-      <div class="row m-center"><div><h2 style="margin:0">Foglio compilato a penna?</h2><div class="muted">Carica la foto o la scansione: i rotoli e i kg vengono letti e scritti qui sotto. Controlla che corrispondano al foglio.</div></div>
-      <span class="spacer"></span>
-      <label class="btn"><input type="file" id="scan" accept="image/*,application/pdf" style="display:none">📷 Carica foto / PDF del foglio</label></div>
-      <div id="scs"></div>
-    </div>` : ''}
+    <!-- Foglio Excel vuoto e foto del foglio a penna tolti: si compila e si stampa dal portale -->
 
     ${uff ? `<div class="summary">
       <div><b>${chk.items.reduce((s, x) => s + x.rotoli, 0)} / ${o.items.reduce((s, x) => s + (x.colli || 0), 0)}</b><span>rotoli caricati / ordinati</span></div>
