@@ -231,9 +231,22 @@ const STATUS = { da_preparare: 'Da preparare', preparato: 'Da controllare', chiu
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
 let me = null;
 
+// Dopo un aggiornamento del portale la pagina si ricarica da sola (se non ci sono modifiche non salvate).
+let appVersion = null, reloadPending = false;
+function checkVersion(v) {
+  if (!v) return;
+  if (!appVersion) { appVersion = v; return; }
+  if (v !== appVersion) reloadPending = true;
+}
+function reloadIfOutdated() {
+  if (reloadPending && !dirty) { reloadPending = false; location.reload(); return true; }
+  return false;
+}
+
 async function api(path, opts = {}) {
   const r = await fetch(path, { method: opts.method || (opts.body ? 'POST' : 'GET'), headers: opts.body ? { 'Content-Type': 'application/json' } : {},
     body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' });
+  checkVersion(r.headers.get('X-App-Version'));
   let d = null; try { d = await r.json(); } catch (_) {}
   if (!r.ok) {
     if (r.status === 401 && path !== '/api/login') { me = null; renderLogin(); }
@@ -296,6 +309,7 @@ function renderChrome() {
   if (me) document.getElementById('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); me = null; renderLogin(); };
 }
 async function route() {
+  if (reloadIfOutdated()) return;
   if (!me) return renderLogin();
   renderChrome();
   const r = location.hash || '#/ordini';
@@ -367,7 +381,7 @@ async function renderOrders() {
   if (!ol) return;
   // L'elenco si aggiorna da solo: lo stato cambia appena il magazzino conferma.
   clearTimeout(window._poll);
-  window._poll = setTimeout(() => { if ((location.hash || '#/ordini') === '#/ordini' && !document.querySelector('.status.loading')) renderOrders(); }, 30000);
+  window._poll = setTimeout(() => { if ((location.hash || '#/ordini') === '#/ordini' && !document.querySelector('.status.loading') && !reloadIfOutdated()) renderOrders(); }, 30000);
   if (!list.length) { ol.innerHTML = `<div class="empty">${uff ? 'Nessun ordine: carica la prima conferma qui sopra.' : 'Nessun ordine da preparare. 👍'}</div>`; return; }
   ol.innerHTML = `<table class="list"><thead><tr><th>Ordine</th><th>Cliente</th><th class="hide-m">Magazzino</th><th class="num">Rotoli</th><th>Stato</th></tr></thead><tbody>
     ${list.map(o => `<tr class="click" data-id="${o.id}"><td><b>${h(o.n_ordine || '—')}</b><div class="muted">${h(o.data_ordine || '')}</div></td>

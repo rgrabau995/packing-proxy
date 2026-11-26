@@ -13,6 +13,10 @@ const { importRegister, exportRegister } = require('./lib/register');
 const app = express();
 app.use(express.json({ limit: '40mb' }));
 
+// Versione del portale: cambia a ogni deploy. La pagina la confronta e si ricarica da sola quando è vecchia.
+const APP_VERSION = process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_GIT_COMMIT_SHA || String(Date.now());
+app.use((req, res, next) => { res.setHeader('X-App-Version', APP_VERSION); next(); });
+
 // ── Accesso ─────────────────────────────────────────────────
 // UFFICIO_CODE (o il vecchio ACCESS_CODE) = logistica, MAGAZZINO_CODE = magazzino. Si impostano su Railway.
 const ROLE_LABEL = { ufficio: 'Logistica', magazzino: 'Magazzino' };
