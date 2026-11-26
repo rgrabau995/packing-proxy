@@ -539,14 +539,8 @@ function closeBlock() {
     <p class="muted">I rotoli riconosciuti sono usciti dalla giacenza e sono scritti nel registro del prodotto con DDT ${h(o.ddt)}.</p>
     <div class="row" style="margin-top:10px">${codes.map(c => `<button class="btn btn-primary" data-reg="${h(c)}">⬇ ${h(c)}.xlsx</button>`).join('')}
       <span class="spacer"></span><button class="btn" id="reopen">Riapri ordine</button></div></div>`;
-  return `<div class="card" id="closecard"><h2>Chiudi e scarica dal magazzino</h2>
-    <p class="muted" style="margin-bottom:12px">Alla chiusura i rotoli riconosciuti escono dalla giacenza e vengono scritti nel registro del prodotto con questo nome e DDT.</p>
-    <div class="grid3">
-      <label class="f">Nome nel registro<input class="t" id="clabel" placeholder="Es. F.P.C. di Trudu Marcello"></label>
-      <label class="f">N. DDT<input class="t" id="cddt" inputmode="numeric" placeholder="Es. 769"></label>
-      <div class="f" style="justify-content:flex-end"><button class="btn btn-ok" id="close">Chiudi ordine</button></div>
-    </div><div id="cs"></div>
-    ${o.status === 'preparato' ? `<div class="row" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><span class="muted">Rotoli sbagliati o mancanti?</span><button class="btn btn-sm" id="back">↩ Rimanda al magazzino</button></div>` : ''}</div>`;
+  // La chiusura con DDT è tolta per ora: resta solo la possibilità di rimandare l'ordine al magazzino.
+  return o.status === 'preparato' ? `<div class="card"><div class="row"><span class="muted">Rotoli sbagliati o mancanti?</span><button class="btn btn-sm" id="back">↩ Rimanda al magazzino</button></div></div>` : '';
 }
 
 function collectDraft() {
@@ -633,7 +627,7 @@ function bindOrder() {
 
   if (uff && o.status !== 'chiuso') {
     api(`/api/orders/${o.id}/label`).then(r => { const el = document.getElementById('clabel'); if (el && !el.value) el.value = r.label; }).catch(() => {});
-    document.getElementById('close').onclick = () => closeOrder(false);
+    const cl = document.getElementById('close'); if (cl) cl.onclick = () => closeOrder(false);
   }
   const back = document.getElementById('back');
   if (back) back.onclick = async () => {
