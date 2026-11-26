@@ -128,14 +128,18 @@ app.get('/api/orders/:id', auth(), ah((req, res) => {
 }));
 
 // Dati dell'ordine modificabili dalla logistica (magazzino di partenza, cliente, articoli...).
-app.patch('/api/orders/:id', auth('ufficio'), ah((req, res) => {
+app.patch('/api/orders/:id', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
-  const fields = ['n_ordine', 'data_ordine', 'cliente', 'indirizzo', 'localita', 'telefono', 'email', 'cod_cliente', 'modalita_carico', 'note_carico', 'magazzino'];
+  const isMag = req.user.r !== 'ufficio';
+  if (isMag) forWarehouse(req, o);
+  // Il magazzino può scegliere solo il magazzino di partenza; il resto è della logistica.
+  const fields = isMag ? ['magazzino'] : ['n_ordine', 'data_ordine', 'cliente', 'indirizzo', 'localita', 'telefono', 'email', 'cod_cliente', 'modalita_carico', 'note_carico', 'magazzino'];
   const b = req.body || {};
+  if (isMag && Array.isArray(b.items)) throw fail(403, 'Operazione riservata alla logistica.');
   for (const f of fields) if (f in b) db.prepare(`UPDATE orders SET ${f} = ? WHERE id = ?`).run(b[f] === '' ? null : b[f], o.id);
   if (Array.isArray(b.items)) db.prepare('UPDATE orders SET items = ? WHERE id = ?').run(JSON.stringify(b.items.map(i => ({
     codice: i.codice || null, descrizione: i.descrizione || '', gr_mq: i.gr_mq ?? null, colli: i.colli ?? null, quantita_kg: i.quantita_kg ?? null }))), o.id);
-  res.json(orderView(getOrder(o.id)));
+  res.json(orderView(getOrder(o.id), req.user.r));
 }));
 
 app.delete('/api/orders/:id', auth('ufficio'), ah((req, res) => {

@@ -139,6 +139,7 @@ table.list tr.click:hover td{background:#faf8f4}
 .x:hover{background:var(--paper-2);color:var(--err)}
 .kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;font-size:14px}
 .kv dt{color:var(--ink-faint);font-size:13px}
+.kv-order{grid-template-columns:170px 1fr;gap:7px 16px}
 /* Barra fissa in fondo allo schermo (non "sticky": su Safari iPhone salirebbe a metà pagina quando la barra degli indirizzi si nasconde) */
 .sticky-actions{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--paper);border-top:1px solid var(--line);
   box-shadow:0 -8px 20px -14px rgba(25,23,20,.35);padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
@@ -178,7 +179,30 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .art.uff .lines td.c-st{grid-column:1/-1;grid-row:2;padding-top:4px}
   .kv{grid-template-columns:110px 1fr}
 }
-@media print{.topbar,.sticky-actions,footer{display:none}}
+/* Stampa dell'ordine compilato: A4, bianco e nero, solo l'area di stampa */
+.print-row{display:flex;justify-content:center;margin:6px 0 20px}
+.btn-print{padding:12px 22px;font-size:15px}
+#printArea{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff;display:block}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:11pt}
+  .p-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:4px}
+  .p-title{font-size:17pt;font-weight:800}.p-no{font-size:13pt;font-weight:700}
+  .p-co{font-size:8pt;margin:3px 0 8px}
+  #printArea table{width:100%;border-collapse:collapse}
+  #printArea th,#printArea td{border:1px solid #000;padding:4px 7px;text-align:left;vertical-align:top}
+  .p-fields th{width:30%;background:#eee;font-weight:700}
+  .p-art{margin-top:12px;page-break-inside:avoid;break-inside:avoid}
+  .p-art-h{font-weight:700;border:2px solid #000;background:#ddd;padding:5px 7px}
+  .p-meta{font-size:9pt;border:1px solid #000;border-top:none;padding:3px 7px}
+  .p-rows th{background:#eee;text-align:center}.p-rows td{text-align:center;height:16pt}
+  .p-rows td:first-child,.p-rows th:first-child{width:8%}
+  .p-rows tfoot td{font-weight:700;border-top:2px solid #000}
+  .p-total{margin-top:12px;border:2px solid #000;background:#ddd;padding:6px 8px;font-weight:800;font-size:12pt}
+  .p-sign{margin-top:12px}.p-sign th{width:20%;background:#eee}.p-sign td{height:22pt}
+}
 </style>
 </head>
 <body>
@@ -194,6 +218,7 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
 
 <main class="container" id="app"></main>
 <footer><span>JARVIS · Serchio Distribuzione S.r.l.</span></footer>
+<div id="printArea"></div>
 
 <script src="packing.js"></script>
 <script>
@@ -396,31 +421,30 @@ function drawOrder() {
     </div>
 
     <div class="card">
-      <div class="grid2">
-        <dl class="kv">
-          <dt>Cod. cliente</dt><dd>${h(o.cod_cliente || '—')}</dd>
-          <dt>Telefono</dt><dd>${h(o.telefono || '—')}</dd>
-          <dt>Carico</dt><dd>${h(o.modalita_carico || '—')}</dd>
-          ${o.note_carico ? `<dt>Note di carico</dt><dd>${h(o.note_carico)}</dd>` : ''}
-        </dl>
-        <div>
-          ${uff && !closed ? `<label class="f">Magazzino di partenza<input class="t" id="omag" value="${h(o.magazzino || '')}" placeholder="Es. TORELLO LANDI"></label>` : `<dl class="kv"><dt>Magazzino</dt><dd>${h(o.magazzino || '—')}</dd></dl>`}
-          <dl class="kv" style="margin-top:10px">
-            ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
-          </dl>
-        </div>
-      </div>
-      <div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      <dl class="kv kv-order">
+        <dt>Destinatario</dt><dd><b>${h(o.cliente || '—')}</b></dd>
+        <dt>Indirizzo</dt><dd>${h(o.indirizzo || '—')}</dd>
+        <dt>Telefono</dt><dd>${h(o.telefono || '—')}</dd>
+        <dt>E-mail</dt><dd>${h(o.email || '—')}</dd>
+        <dt>N. ordine</dt><dd><b>${h(o.n_ordine || '—')}</b></dd>
+        <dt>Data ordine</dt><dd>${h(o.data_ordine || '—')}</dd>
+        <dt>Cod. cliente</dt><dd>${h(o.cod_cliente || '—')}</dd>
+        <dt>Modalità di carico</dt><dd>${h(o.modalita_carico || '—')}</dd>
+        <dt>Note di carico</dt><dd>${h(o.note_carico || '—')}</dd>
+        <dt>Magazzino di partenza</dt><dd>${(uff && !closed) || (!uff && o.status === 'da_preparare') ? magSelect(o.magazzino) : h(o.magazzino || '—')}</dd>
+        ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
+      </dl>
+      ${uff ? `<div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
         <button class="btn" id="dl">⬇ Foglio da stampare (.xlsx)</button>
         <label class="muted row extra-wrap" style="gap:6px">righe vuote in più <input class="t" id="extra" type="number" min="0" max="30" value="${h(store.get('pk_extra', '2'))}" style="width:64px;padding:6px 8px"></label>
         <span class="spacer"></span>
         ${o.file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.file)}" target="_blank">Conferma PDF</a>` : ''}
         ${o.scan_file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.scan_file)}" target="_blank">Foglio caricato</a>` : ''}
         ${uff && !closed ? `<button class="btn btn-sm btn-link" id="del" style="color:var(--err)">Elimina ordine</button>` : ''}
-      </div>
+      </div>` : ''}
     </div>
 
-    ${!ro ? `<div class="card">
+    ${!ro && uff ? `<div class="card">
       <div class="row m-center"><div><h2 style="margin:0">Foglio compilato a penna?</h2><div class="muted">Carica la foto o la scansione: i rotoli e i kg vengono letti e scritti qui sotto. Controlla che corrispondano al foglio.</div></div>
       <span class="spacer"></span>
       <label class="btn"><input type="file" id="scan" accept="image/*,application/pdf" style="display:none">📷 Carica foto / PDF del foglio</label></div>
@@ -443,6 +467,8 @@ function drawOrder() {
 
     <div id="arts">${o.items.map((it, i) => artBlock(it, i, ro)).join('')}</div>
 
+    <div class="print-row"><button class="btn btn-print" id="print">🖨 Stampa ordine</button></div>
+
     ${uff ? closeBlock() : ''}
 
     ${!ro ? `<div class="actions-space"></div><div class="sticky-actions"><div class="sa-in">
@@ -455,6 +481,44 @@ function drawOrder() {
 
 // Le righe dei rotoli della conferma sono fisse; solo quelle aggiunte con "+ Rotolo" si possono togliere.
 function baseRows(it) { return Math.max(1, parseInt(it.colli, 10) || 0); }
+
+// Magazzini di partenza (menu a tendina). Un valore vecchio scritto a mano resta selezionabile.
+const MAGAZZINI = ['0 Diretto', '1 Focosi', '4 Incerpi', '16 Landi'];
+function magSelect(v) {
+  const opts = MAGAZZINI.includes(v) || !v ? MAGAZZINI : [v, ...MAGAZZINI];
+  return `<select class="t" id="omag" style="max-width:260px"><option value="">— scegli —</option>${opts.map(m => `<option${m === v ? ' selected' : ''}>${h(m)}</option>`).join('')}</select>`;
+}
+
+// Stampa di quello che è compilato sul portale (anche le modifiche non ancora salvate).
+function printOrder() {
+  collectDraft();
+  const o = cur;
+  const pby = document.getElementById('pby')?.value ?? o.prepared_by ?? '';
+  const pdate = document.getElementById('pdate')?.value || o.prepared_date || '';
+  const mag = document.getElementById('omag')?.value ?? o.magazzino ?? '';
+  const field = (l, v) => `<tr><th>${h(l)}</th><td>${h(v || '')}</td></tr>`;
+  let totR = 0, totKg = 0;
+  const arts = o.items.map((it, i) => {
+    const ls = draft.filter(l => l.item === i && (String(l.roll_input).trim() || String(l.kg_input).trim()));
+    const kg = ls.reduce((s, l) => s + (Number(String(l.kg_input).replace(',', '.')) || 0), 0);
+    totR += ls.length; totKg += kg;
+    return `<div class="p-art"><div class="p-art-h">${i + 1}. ${h(it.codice ? it.codice + ' · ' : '')}${h(it.descrizione || '')}</div>
+      <div class="p-meta">GR/MQ ${h(it.gr_mq ?? '—')} · ${h(it.colli ?? '?')} rotoli ordinati · ${fmtKg(it.quantita_kg)} kg ordinati</div>
+      <table class="p-rows"><thead><tr><th>N.</th><th>N. Rotolo</th><th>KG</th></tr></thead><tbody>
+      ${ls.length ? ls.map((l, k) => `<tr><td>${k + 1}</td><td>${h(l.roll_input)}</td><td>${h(l.kg_input)}</td></tr>`).join('') : '<tr><td colspan="3">Nessun rotolo inserito</td></tr>'}
+      </tbody><tfoot><tr><td></td><td>Totale ${ls.length} rotoli</td><td>${fmtKg(kg)} kg</td></tr></tfoot></table></div>`;
+  }).join('');
+  document.getElementById('printArea').innerHTML = `<div class="p-head"><div class="p-title">PROGRAMMA DI CARICO</div><div class="p-no">Ordine n. ${h(o.n_ordine || '')}</div></div>
+    <div class="p-co">Serchio Distribuzione S.r.l.</div>
+    <table class="p-fields">${field('Destinatario', o.cliente)}${field('Indirizzo', o.indirizzo)}${field('Telefono', o.telefono)}${field('E-mail', o.email)}
+      ${field('N. ordine', o.n_ordine)}${field('Data ordine', o.data_ordine)}${field('Cod. cliente', o.cod_cliente)}${field('Modalità di carico', o.modalita_carico)}
+      ${field('Note di carico', o.note_carico)}${field('Magazzino di partenza', mag)}${o.ddt ? field('DDT', o.ddt) : ''}</table>
+    ${arts}
+    <div class="p-total">TOTALE ORDINE: ${totR} rotoli · ${fmtKg(totKg)} kg</div>
+    <table class="p-sign"><tr><th>Preparato da</th><td>${h(pby)}</td><th>Data</th><td>${h(fmtDate(pdate))}</td></tr>
+      <tr><th>Caricato senza riserve da</th><td></td><th>Firma</th><td></td></tr></table>`;
+  window.print();
+}
 
 function artBlock(it, i, ro) {
   const uff = me.ruolo === 'ufficio';
@@ -502,7 +566,8 @@ function markDirty() { dirty = true; const d = document.getElementById('dirty');
 
 function bindOrder() {
   const o = cur, uff = me.ruolo === 'ufficio';
-  document.getElementById('dl').onclick = () => {
+  const dlb = document.getElementById('dl');
+  if (dlb) dlb.onclick = () => {
     const extra = Number(document.getElementById('extra').value) || 0; store.set('pk_extra', String(extra));
     const d = { destinatario_nome: o.cliente, destinatario_indirizzo: o.indirizzo, telefono: o.telefono, email: o.email, cod_cliente: o.cod_cliente,
       n_ordine: o.n_ordine, data_ordine: o.data_ordine, modalita_carico: o.modalita_carico, note_carico: o.note_carico, magazzino_partenza: o.magazzino, prodotti: o.items,
@@ -510,7 +575,11 @@ function bindOrder() {
     download(buildXlsx(d, { magazzino: (document.getElementById('omag')?.value || o.magazzino || '').trim(), extraRows: extra }), `ProgrammaCarico_${(o.n_ordine || 'ordine').replace(/\W/g, '')}.xlsx`);
   };
   const omag = document.getElementById('omag');
-  if (omag) omag.onchange = async () => { await api('/api/orders/' + o.id, { method: 'PATCH', body: { magazzino: omag.value } }); cur.magazzino = omag.value; toast('Magazzino salvato'); };
+  if (omag) omag.onchange = async () => {
+    try { await api('/api/orders/' + o.id, { method: 'PATCH', body: { magazzino: omag.value } }); cur.magazzino = omag.value; toast('Magazzino di partenza salvato'); }
+    catch (e) { toast(e.message, 5000); }
+  };
+  document.getElementById('print').onclick = printOrder;
   const del = document.getElementById('del');
   if (del) del.onclick = async () => { if (!confirm('Eliminare questo ordine e i rotoli inseriti?')) return; await api('/api/orders/' + o.id, { method: 'DELETE' }); dirty = false; location.hash = '#/ordini'; };
 
