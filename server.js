@@ -74,7 +74,7 @@ function saveFile(f, prefix) {
   fs.writeFileSync(path.join(FILES, name), Buffer.from(f.data, 'base64'));
   return name;
 }
-app.get('/api/files/:name', auth('ufficio'), (req, res) => {
+app.get('/api/files/:name', auth(), (req, res) => {
   const name = path.basename(req.params.name);
   const p = path.join(FILES, name);
   if (!fs.existsSync(p)) return res.status(404).end();
@@ -88,23 +88,21 @@ const getOrder = id => {
   return o;
 };
 const getLines = id => db.prepare('SELECT * FROM order_lines WHERE order_id = ? ORDER BY item, pos').all(Number(id));
-// Il magazzino vede solo l'ordine da preparare e le sue righe: i controlli sono dell'ufficio.
-const forWarehouse = (req, o) => {
-  if (req.user.r !== 'ufficio' && o.status !== 'da_preparare') throw fail(403, 'Ordine già confermato e passato alla logistica.');
+// Logistica e magazzino lavorano sugli ordini allo stesso modo: si modifica solo un ordine "da preparare".
+// Un ordine confermato si riapre con "Modifica ordine".
+const editable = o => {
+  if (o.status !== 'da_preparare') throw fail(409, 'Ordine già confermato: premere "Modifica ordine" per cambiarlo.');
 };
 function orderView(o, role = 'ufficio') {
   const lines = getLines(o.id);
-  if (role !== 'ufficio') {
-    const { file, scan_file, ddt, closed_by, closed_at, ...rest } = o;
-    return { ...rest, items: JSON.parse(o.items), lines: lines.map(({ roll_id, ...l }) => l) };
-  }
+  if (role !== 'ufficio') return { ...o, items: JSON.parse(o.items), lines: lines.map(({ roll_id, ...l }) => l) };
   const check = checkOrder(o, lines);
   return { ...o, items: JSON.parse(o.items), lines: check.lines, check: { items: check.items, problemi: check.problemi, avvisi: check.avvisi, nonVerificabili: check.nonVerificabili } };
 }
 
 app.get('/api/orders', auth(), (req, res) => {
   const rows = db.prepare(`SELECT o.*, (SELECT COUNT(*) FROM order_lines l WHERE l.order_id = o.id AND TRIM(COALESCE(l.roll_input,'')) != '') AS rotoli
-    FROM orders o ${req.user.r === 'ufficio' ? '' : "WHERE o.status = 'da_preparare'"} ORDER BY CASE o.status WHEN 'da_preparare' THEN 0 WHEN 'preparato' THEN 1 ELSE 2 END, o.id DESC LIMIT 300`).all();
+    FROM orders o ORDER BY CASE o.status WHEN 'da_preparare' THEN 0 WHEN 'preparato' THEN 1 ELSE 2 END, o.id DESC LIMIT 300`).all();
   res.json(rows.map(o => {
     const items = JSON.parse(o.items);
     return { id: o.id, n_ordine: o.n_ordine, data_ordine: o.data_ordine, cliente: o.cliente, localita: o.localita, status: o.status,
@@ -126,16 +124,14 @@ app.post('/api/orders', auth('ufficio'), ah(async (req, res) => {
 }));
 
 app.get('/api/orders/:id', auth(), ah((req, res) => {
-  const o = getOrder(req.params.id);
-  forWarehouse(req, o);
-  res.json(orderView(o, req.user.r));
+  res.json(orderView(getOrder(req.params.id), req.user.r));
 }));
 
 // Dati dell'ordine modificabili dalla logistica (magazzino di partenza, cliente, articoli...).
 app.patch('/api/orders/:id', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
   const isMag = req.user.r !== 'ufficio';
-  if (isMag) forWarehouse(req, o);
+  if (isMag || !Array.isArray(req.body?.items)) editable(o);
   // Il magazzino può scegliere solo il magazzino di partenza; il resto è della logistica.
   const fields = isMag ? ['magazzino'] : ['n_ordine', 'data_ordine', 'cliente', 'indirizzo', 'localita', 'telefono', 'email', 'cod_cliente', 'modalita_carico', 'note_carico', 'magazzino'];
   const b = req.body || {};
@@ -169,8 +165,7 @@ const saveLines = tx((orderId, lines) => {
 });
 app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
-  if (o.status === 'chiuso') throw fail(409, 'Ordine già chiuso dalla logistica: non è più modificabile.');
-  forWarehouse(req, o);
+  editable(o);
   saveLines(o.id, Array.isArray(req.body?.lines) ? req.body.lines : []);
   // "Preparato da" e data: scritti liberamente da chi prepara (la data dal calendario).
   const b = req.body || {};
@@ -192,7 +187,7 @@ app.get('/api/orders/:id/resolve', auth('ufficio'), ah((req, res) => {
 // Legge la foto / scansione del foglio compilato a mano. Non salva: le righe tornano alla pagina da controllare.
 app.post('/api/orders/:id/scan', auth(), ah(async (req, res) => {
   const o = getOrder(req.params.id);
-  forWarehouse(req, o);
+  editable(o);
   const { file } = req.body || {};
   checkFile(file);
   const items = JSON.parse(o.items);
@@ -252,6 +247,13 @@ app.post('/api/orders/:id/reopen', auth('ufficio'), ah((req, res) => {
     db.prepare(`UPDATE orders SET status = 'preparato', ddt = NULL, closed_by = NULL, closed_at = NULL WHERE id = ?`).run(o.id);
   })();
   res.json(orderView(getOrder(o.id)));
+}));
+// "Modifica ordine": un ordine confermato torna "da preparare" (per logistica e magazzino).
+app.post('/api/orders/:id/edit', auth(), ah((req, res) => {
+  const o = getOrder(req.params.id);
+  if (o.status === 'chiuso') throw fail(409, 'Ordine chiuso con DDT: non si può più modificare.');
+  db.prepare(`UPDATE orders SET status = 'da_preparare' WHERE id = ?`).run(o.id);
+  res.json(orderView(getOrder(o.id), req.user.r));
 }));
 // La logistica rimanda l'ordine al magazzino (es. rotoli da correggere): torna "da preparare".
 app.post('/api/orders/:id/back', auth('ufficio'), ah((req, res) => {

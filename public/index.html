@@ -180,7 +180,8 @@ footer{max-width:1160px;width:100%;margin:0 auto;padding:16px 20px 26px;font-siz
   .kv{grid-template-columns:110px 1fr}
 }
 /* Stampa dell'ordine compilato: A4, bianco e nero, solo l'area di stampa */
-.print-row{display:flex;justify-content:center;margin:6px 0 20px}
+.print-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:6px 0 20px}
+.lines input:disabled,input.t:disabled,select.t:disabled{background:var(--paper-2);color:var(--ink);-webkit-text-fill-color:var(--ink);opacity:1}
 .btn-print{padding:12px 22px;font-size:15px}
 #printArea{display:none}
 @media print{
@@ -227,7 +228,7 @@ const $app = document.getElementById('app');
 const h = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmtKg = v => v == null || v === '' ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 1 });
 const fmtDate = iso => { if (!iso) return ''; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
-const STATUS = { da_preparare: 'Da preparare', preparato: 'Da controllare', chiuso: 'Chiuso' };
+const STATUS = { da_preparare: 'Da preparare', preparato: 'Preparato', chiuso: 'Chiuso' };
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
 let me = null;
 
@@ -298,7 +299,8 @@ function download(blob, name) {
 
 // ── Navigazione ────────────────────────────────────────────
 function renderChrome() {
-  document.body.classList.toggle('mag', me?.ruolo === 'magazzino');
+  // Ordini: stessa larghezza (pagina "modulo") per logistica e magazzino; la Giacenza resta larga.
+  document.body.classList.toggle('mag', !!me && !(location.hash || '').startsWith('#/magazzino') && !(location.hash || '').startsWith('#/prodotto'));
   const route = location.hash || '#/ordini';
   // Per ora tutti vedono solo gli Ordini: niente barra di navigazione.
   // La pagina Giacenza è nascosta ma resta raggiungibile dalla logistica all'indirizzo diretto #/magazzino.
@@ -351,8 +353,8 @@ function renderLogin() {
 // ── Ordini ─────────────────────────────────────────────────
 async function renderOrders() {
   const uff = me.ruolo === 'ufficio';
-  $app.innerHTML = `<div class="eyebrow">${uff ? 'Logistica' : 'Magazzino'}</div><h1>${uff ? 'Ordini' : 'Ordini da preparare'}</h1>
-    <p class="subtitle">${uff ? 'Carica la conferma d\'ordine: il packing list è subito visibile anche al magazzino. Quando il magazzino conferma, lo stato passa a "Da controllare": fai la revisione con la spedizione del fornitore e chiudi con il DDT.' : 'Apri l\'ordine, scrivi i rotoli caricati (o stampa il foglio e poi carica la foto) e premi "Confermo: preparato". Il resto lo fa la logistica.'}</p>
+  $app.innerHTML = `<div class="eyebrow">Programma di carico</div><h1>Ordini</h1>
+    <p class="subtitle">Apri l'ordine, scrivi i rotoli caricati e premi "Confermo: preparato". Un ordine confermato si cambia con "Modifica ordine" e si stampa con "Stampa ordine".</p>
     ${uff ? `<div class="card">
       <h2>Nuovo ordine</h2>
       <div class="drop-zone" id="dz"><div class="label">Trascina qui la conferma d'ordine (PDF)</div><div class="sub">oppure clicca per selezionarla</div><input type="file"></div>
@@ -382,7 +384,7 @@ async function renderOrders() {
   // L'elenco si aggiorna da solo: lo stato cambia appena il magazzino conferma.
   clearTimeout(window._poll);
   window._poll = setTimeout(() => { if ((location.hash || '#/ordini') === '#/ordini' && !document.querySelector('.status.loading') && !reloadIfOutdated()) renderOrders(); }, 30000);
-  if (!list.length) { ol.innerHTML = `<div class="empty">${uff ? 'Nessun ordine: carica la prima conferma qui sopra.' : 'Nessun ordine da preparare. 👍'}</div>`; return; }
+  if (!list.length) { ol.innerHTML = `<div class="empty">Nessun ordine${uff ? ': carica la prima conferma qui sopra.' : '.'}</div>`; return; }
   ol.innerHTML = `<table class="list"><thead><tr><th>Ordine</th><th>Cliente</th><th class="hide-m">Magazzino</th><th class="num">Rotoli</th><th>Stato</th></tr></thead><tbody>
     ${list.map(o => `<tr class="click" data-id="${o.id}"><td><b>${h(o.n_ordine || '—')}</b><div class="muted">${h(o.data_ordine || '')}</div></td>
       <td>${h(o.cliente || '')}<div class="muted">${h(o.localita || '')}</div></td>
@@ -422,9 +424,10 @@ async function renderOrder(id) {
 }
 
 function drawOrder() {
+  // Pagina identica per logistica e magazzino. Si modifica solo un ordine "da preparare";
+  // un ordine confermato è in sola lettura e si riapre con "Modifica ordine".
   const o = cur, uff = me.ruolo === 'ufficio', closed = o.status === 'chiuso';
-  const ro = closed;
-  const chk = o.check;
+  const ro = o.status !== 'da_preparare';
   $app.innerHTML = `
     <div class="row"><a href="#/ordini" class="back-link">← TORNA AL MENU PRINCIPALE DEGLI ORDINI</a></div>
     <div class="row" style="align-items:flex-end;margin-bottom:12px">
@@ -445,25 +448,15 @@ function drawOrder() {
         <dt>Cod. cliente</dt><dd>${h(o.cod_cliente || '—')}</dd>
         <dt>Modalità di carico</dt><dd>${h(o.modalita_carico || '—')}</dd>
         <dt>Note di carico</dt><dd>${h(o.note_carico || '—')}</dd>
-        <dt>Magazzino di partenza</dt><dd>${(uff && !closed) || (!uff && o.status === 'da_preparare') ? magSelect(o.magazzino) : h(o.magazzino || '—')}</dd>
+        <dt>Magazzino di partenza</dt><dd>${!ro ? magSelect(o.magazzino) : h(o.magazzino || '—')}</dd>
         ${o.ddt ? `<dt>DDT</dt><dd><b>${h(o.ddt)}</b> · chiuso da ${h(o.closed_by)} il ${fmtDate(o.closed_at)}</dd>` : ''}
       </dl>
-      ${uff ? `<div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      ${o.file || (uff && !closed) ? `<div class="row m-center dlrow" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
         <span class="spacer"></span>
         ${o.file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.file)}" target="_blank">Conferma PDF</a>` : ''}
-        ${o.scan_file ? `<a class="btn btn-sm btn-link" href="/api/files/${h(o.scan_file)}" target="_blank">Foglio caricato</a>` : ''}
         ${uff && !closed ? `<button class="btn btn-sm btn-link" id="del" style="color:var(--err)">Elimina ordine</button>` : ''}
       </div>` : ''}
     </div>
-
-    <!-- Foglio Excel vuoto e foto del foglio a penna tolti: si compila e si stampa dal portale -->
-
-    ${uff ? `<div class="summary">
-      <div><b>${chk.items.reduce((s, x) => s + x.rotoli, 0)} / ${o.items.reduce((s, x) => s + (x.colli || 0), 0)}</b><span>rotoli caricati / ordinati</span></div>
-      <div><b>${fmtKg(chk.items.reduce((s, x) => s + x.kgFornitore, 0))}</b><span>kg (packing list fornitore)</span></div>
-      <div><b>${fmtKg(o.items.reduce((s, x) => s + (x.quantita_kg || 0), 0))}</b><span>kg ordinati</span></div>
-      <div><b style="color:${chk.problemi ? 'var(--err)' : 'var(--ok)'}">${chk.problemi || '✓'}</b><span>${chk.problemi ? 'rotoli da controllare' : 'nessun problema'}${chk.nonVerificabili ? ` · ${chk.nonVerificabili} non verificabili (prodotto senza giacenza)` : ''}</span></div>
-    </div>` : ''}
 
     <div class="card">
       <div class="grid2">
@@ -474,14 +467,15 @@ function drawOrder() {
 
     <div id="arts">${o.items.map((it, i) => artBlock(it, i, ro)).join('')}</div>
 
-    <div class="print-row"><button class="btn btn-print" id="print">🖨 Stampa ordine</button></div>
-
-    ${uff ? closeBlock() : ''}
+    <div class="print-row">
+      <button class="btn btn-print" id="print">🖨 Stampa ordine</button>
+      ${o.status === 'preparato' ? `<button class="btn btn-print" id="edit">✏️ Modifica ordine</button>` : ''}
+    </div>
 
     ${!ro ? `<div class="actions-space"></div><div class="sticky-actions"><div class="sa-in">
       <span class="muted" id="dirty"></span>
       <button class="btn" id="save">Salva</button>
-      ${!uff ? `<button class="btn btn-ok" id="send">✓ Confermo: preparato</button>` : ''}
+      <button class="btn btn-ok" id="send">✓ Confermo: preparato</button>
     </div></div>` : ''}`;
   bindOrder();
 }
@@ -528,21 +522,18 @@ function printOrder() {
 }
 
 function artBlock(it, i, ro) {
-  const uff = me.ruolo === 'ufficio';
-  const c = (cur.check && cur.check.items[i]) || {};
   const rows = draft.map((l, idx) => ({ l, idx })).filter(x => x.l.item === i);
-  return `<div class="art ${uff ? 'uff' : 'mag'}" data-item="${i}">
+  return `<div class="art mag" data-item="${i}">
     <div class="art-h"><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
       <div class="m">${h(it.codice || 'codice ?')} · GR/MQ ${h(it.gr_mq ?? '—')} · <b>${h(it.colli ?? '?')} rotoli</b> · ${fmtKg(it.quantita_kg)} kg ordinati</div></div>
-    <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th>${uff ? '<th class="c-st">Controllo</th>' : ''}</tr></thead><tbody>
+    <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th></tr></thead><tbody>
       ${rows.map(({ l, idx }, k) => `<tr class="l" data-idx="${idx}">
         <td class="c-roll"><input data-f="roll_input" value="${h(l.roll_input)}" ${ro ? 'disabled' : ''} inputmode="numeric" placeholder="es. 726" aria-label="Numero rotolo"></td>
         <td class="c-kg"><div class="kgw"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg">${ro || k < baseRows(it) ? '' : `<button class="x" data-del="${idx}" title="Togli il rotolo aggiunto">×</button>`}</div></td>
-        <td class="c-st">${uff ? stateView(l.match) : ''}${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td></tr>`).join('')}
+        <td class="c-st">${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td></tr>`).join('')}
     </tbody></table>
     <div class="art-f">${ro ? '' : `<button class="btn btn-sm" data-add="${i}">+ Rotolo</button>`}
-      ${uff ? `<span>${c.rotoli ?? 0} rotoli · foglio ${fmtKg(c.kgFoglio)} kg · fornitore ${fmtKg(c.kgFornitore)} kg</span>
-      ${(c.msgs || []).map(m => `<span class="badge b-da_preparare">${h(m)}</span>`).join('')}` : `<span>${rows.filter(x => String(x.l.roll_input).trim()).length} rotoli scritti su ${h(it.colli ?? '?')}</span>`}</div>
+      <span>${rows.filter(x => String(x.l.roll_input).trim()).length} rotoli scritti su ${h(it.colli ?? '?')}</span></div>
   </div>`;
 }
 
@@ -581,6 +572,11 @@ function bindOrder() {
     catch (e) { toast(e.message, 5000); }
   };
   document.getElementById('print').onclick = printOrder;
+  const edit = document.getElementById('edit');
+  if (edit) edit.onclick = async () => {
+    try { await api(`/api/orders/${o.id}/edit`, { method: 'POST' }); toast('Ordine riaperto: ora si può modificare'); renderOrder(o.id); }
+    catch (e) { toast(e.message, 5000); }
+  };
   const del = document.getElementById('del');
   if (del) del.onclick = async () => { if (!confirm('Eliminare questo ordine e i rotoli inseriti?')) return; await api('/api/orders/' + o.id, { method: 'DELETE' }); dirty = false; location.hash = '#/ordini'; };
 
@@ -590,7 +586,7 @@ function bindOrder() {
   // Riconoscimento del rotolo appena si esce dal campo.
   arts.addEventListener('focusout', async e => {
     const inp = e.target;
-    if (!inp.matches('input[data-f="roll_input"]') || me.ruolo !== 'ufficio') return; // il controllo è dell'ufficio
+    return; // controllo dei rotoli al volo non mostrato: la pagina è uguale per logistica e magazzino
     const tr = inp.closest('tr'), l = draft[Number(tr.dataset.idx)];
     if (l.roll_input === inp.value && l.match) return;
     l.roll_input = inp.value;
@@ -669,14 +665,14 @@ async function saveDraft(submit, quiet) {
     const n = draft.filter(l => String(l.roll_input).trim()).length;
     if (!n) return toast('Inserisci almeno un rotolo prima di confermare.');
     const tot = cur.items.reduce((s, i) => s + (i.colli || 0), 0);
-    if (!confirm(`Confermi che l'ordine ${cur.n_ordine || ''} è preparato?\n${n} rotoli scritti su ${tot} ordinati.\nDopo la conferma passa alla logistica.`)) return;
+    if (!confirm(`Confermi che l'ordine ${cur.n_ordine || ''} è preparato?\n${n} rotoli scritti su ${tot} ordinati.\nDopo la conferma l'ordine si potrà cambiare solo con "Modifica ordine".`)) return;
   }
   try {
     const keepScan = cur.scan_file;
     const pby = document.getElementById('pby'), pdate = document.getElementById('pdate');
     const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, prepared_by: pby ? pby.value : cur.prepared_by, prepared_date: pdate ? pdate.value : cur.prepared_date, lines: draft.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
     dirty = false;
-    if (submit && me.ruolo !== 'ufficio') { toast('Ordine confermato e passato alla logistica ✓'); location.hash = '#/ordini'; return; }
+    if (submit) { toast('Ordine confermato come preparato ✓'); location.hash = '#/ordini'; return; }
     await renderOrder(o.id);
     if (keepScan) cur.scan_file = keepScan;
     if (!quiet) toast(submit ? 'Confermato ✓' : 'Salvato ✓');
