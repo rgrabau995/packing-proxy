@@ -109,7 +109,10 @@ table.list tr.click:hover td{background:#faf8f4}
 .b-chiuso{background:var(--ok-bg);color:var(--ok)}
 
 .art{border:1px solid var(--line);border-radius:13px;margin-bottom:14px;overflow:hidden}
-.art-h{background:#faf8f4;padding:12px 14px;border-bottom:1px solid var(--line)}
+.art-h{background:#faf8f4;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:flex-start}
+.art-h>div:first-child{flex:1;min-width:0}
+.art-h .x{margin:-4px -6px 0 0;font-size:20px}
+.art-gone{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px dashed var(--line);border-radius:13px;margin-bottom:14px;padding:10px 14px;font-size:13px;color:var(--ink-soft)}
 .art-h .t{font-weight:700;font-size:14.5px}
 .art-h .m{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
 .lines{display:block;width:100%}
@@ -422,7 +425,7 @@ async function renderOrder(id) {
   // Righe vuote pronte: tante quanti i colli dell'ordine.
   cur.items.forEach((it, i) => {
     const have = draft.filter(l => l.item === i).length;
-    for (let k = have; k < baseRows(it); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null });
+    for (let k = have; k < rowsFor(it); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null });
   });
   dirty = false;
   drawOrder();
@@ -485,8 +488,10 @@ function drawOrder() {
   bindOrder();
 }
 
-// Le righe dei rotoli della conferma sono fisse; solo quelle aggiunte con "+ Rotolo" si possono togliere.
+// Righe vuote pronte: tante quanti i colli della conferma, oppure quante ne sono rimaste dopo aver tolto o aggiunto rotoli.
 function baseRows(it) { return Math.max(1, parseInt(it.colli, 10) || 0); }
+function rowsFor(it) { return it.rimosso ? 0 : (Number.isInteger(it.righe) ? it.righe : baseRows(it)); }
+const ASK_DEL = 'Sei sicuro di volere eliminare?';
 
 // Magazzini di partenza (menu a tendina). Un valore vecchio scritto a mano resta selezionabile.
 const MAGAZZINI = ['0 Diretto', '1 Focosi', '4 Incerpi', '16 Landi'];
@@ -505,6 +510,7 @@ function printOrder() {
   const field = (l, v) => `<tr><th>${h(l)}</th><td>${h(v || '')}</td></tr>`;
   let totR = 0, totKg = 0;
   const arts = o.items.map((it, i) => {
+    if (it.rimosso) return '';
     const ls = draft.filter(l => l.item === i && (String(l.roll_input).trim() || String(l.kg_input).trim()));
     const kg = ls.reduce((s, l) => s + (Number(String(l.kg_input).replace(',', '.')) || 0), 0);
     totR += ls.length; totKg += kg;
@@ -527,14 +533,17 @@ function printOrder() {
 }
 
 function artBlock(it, i, ro) {
+  if (it.rimosso) return `<div class="art-gone" data-item="${i}"><span>${i + 1}. ${h(it.descrizione || it.codice || 'Prodotto')} · <b>eliminato dall'ordine</b></span>
+    ${ro ? '' : `<span class="spacer"></span><button class="btn btn-sm btn-link" data-undoart="${i}">Ripristina</button>`}</div>`;
   const rows = draft.map((l, idx) => ({ l, idx })).filter(x => x.l.item === i);
   return `<div class="art mag" data-item="${i}">
-    <div class="art-h"><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
+    <div class="art-h"><div><div class="t">${i + 1}. ${h(it.descrizione || '')}</div>
       <div class="m">${h(it.codice || 'codice ?')} · GR/MQ ${h(it.gr_mq ?? '—')} · <b>${h(it.colli ?? '?')} rotoli</b> · ${fmtKg(it.quantita_kg)} kg ordinati</div></div>
+      ${ro ? '' : `<button class="x" data-delart="${i}" title="Elimina il prodotto dall'ordine" aria-label="Elimina prodotto">×</button>`}</div>
     <table class="lines"><thead><tr><th>N. rotolo</th><th>Kg</th></tr></thead><tbody>
       ${rows.map(({ l, idx }, k) => `<tr class="l" data-idx="${idx}">
         <td class="c-roll"><input data-f="roll_input" value="${h(l.roll_input)}" ${ro ? 'disabled' : ''} inputmode="numeric" placeholder="es. 726" aria-label="Numero rotolo"></td>
-        <td class="c-kg"><div class="kgw"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg">${ro || k < baseRows(it) ? '' : `<button class="x" data-del="${idx}" title="Togli il rotolo aggiunto">×</button>`}</div></td>
+        <td class="c-kg"><div class="kgw"><input data-f="kg_input" value="${h(l.kg_input)}" ${ro ? 'disabled' : ''} inputmode="decimal" aria-label="Kg">${ro ? '' : `<button class="x" data-del="${idx}" title="Elimina la riga" aria-label="Elimina riga">×</button>`}</div></td>
         <td class="c-st">${l.note ? `<div class="muted" style="font-size:12px;margin-left:27px">${h(l.note)}</div>` : ''}</td></tr>`).join('')}
     </tbody></table>
     <div class="art-f">${ro ? '' : `<button class="btn btn-sm" data-add="${i}">+ Rotolo</button>`}
@@ -611,7 +620,14 @@ function bindOrder() {
   arts.addEventListener('click', e => {
     const add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]'), chip = e.target.closest('.chip');
     if (add) { collectDraft(); const i = Number(add.dataset.add); const last = draft.map((l, k) => l.item === i ? k : -1).filter(k => k >= 0).pop(); draft.splice(last == null ? draft.length : last + 1, 0, { item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null }); markDirty(); redrawArts(); const rows = document.querySelectorAll(`.art[data-item="${i}"] tr.l`); rows[rows.length - 1]?.querySelector('[data-f="roll_input"]').focus(); }
-    if (del) { collectDraft(); draft.splice(Number(del.dataset.del), 1); markDirty(); redrawArts(); }
+    if (del) { if (!confirm(ASK_DEL)) return; collectDraft(); draft.splice(Number(del.dataset.del), 1); markDirty(); redrawArts(); }
+    const delArt = e.target.closest('[data-delart]'), undoArt = e.target.closest('[data-undoart]');
+    if (delArt) { if (!confirm(ASK_DEL)) return; collectDraft(); cur.items[Number(delArt.dataset.delart)].rimosso = true; markDirty(); redrawArts(); }
+    if (undoArt) {
+      collectDraft(); const i = Number(undoArt.dataset.undoart), it = cur.items[i]; delete it.rimosso;
+      if (!draft.some(l => l.item === i)) { delete it.righe; for (let k = 0; k < baseRows(it); k++) draft.push({ item: i, pallet: '', roll_input: '', kg_input: '', note: '', match: null }); draft.sort((a, b) => a.item - b.item); }
+      markDirty(); redrawArts();
+    }
     if (chip && cur.status !== 'chiuso') { const tr = chip.closest('tr'); const inp = tr.querySelector('[data-f="roll_input"]'); inp.value = chip.dataset.roll; draft[Number(tr.dataset.idx)].match = null; markDirty(); inp.focus(); inp.blur(); }
   });
 
@@ -662,20 +678,23 @@ function bindOrder() {
   };
 }
 function redrawArts() {
-  document.getElementById('arts').innerHTML = cur.items.map((it, i) => artBlock(it, i, cur.status === 'chiuso')).join('');
+  document.getElementById('arts').innerHTML = cur.items.map((it, i) => artBlock(it, i, cur.status !== 'da_preparare')).join('');
 }
 async function saveDraft(submit, quiet) {
   collectDraft();
+  const live = draft.filter(l => !cur.items[l.item]?.rimosso);
   if (submit) {
-    const n = draft.filter(l => String(l.roll_input).trim()).length;
+    const n = live.filter(l => String(l.roll_input).trim()).length;
     if (!n) return toast('Inserisci almeno un rotolo prima di confermare.');
-    const tot = cur.items.reduce((s, i) => s + (i.colli || 0), 0);
+    const tot = cur.items.reduce((s, i) => s + (i.rimosso ? 0 : i.colli || 0), 0);
     if (!confirm(`Confermi che l'ordine ${cur.n_ordine || ''} è preparato?\n${n} rotoli scritti su ${tot} ordinati.\nDopo la conferma l'ordine si potrà cambiare solo con "Modifica ordine".`)) return;
   }
   try {
     const keepScan = cur.scan_file;
     const pby = document.getElementById('pby'), pdate = document.getElementById('pdate');
-    const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, prepared_by: pby ? pby.value : cur.prepared_by, prepared_date: pdate ? pdate.value : cur.prepared_date, lines: draft.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
+    const o = await api(`/api/orders/${cur.id}/lines`, { method: 'PUT', body: { submit, prepared_by: pby ? pby.value : cur.prepared_by, prepared_date: pdate ? pdate.value : cur.prepared_date,
+      layout: cur.items.map((it, i) => ({ righe: draft.filter(l => l.item === i).length, rimosso: !!it.rimosso })),
+      lines: live.map(({ item, pallet, roll_input, kg_input, note }) => ({ item, pallet, roll_input, kg_input, note })) } });
     dirty = false;
     if (submit) { toast('Ordine confermato come preparato ✓'); location.hash = '#/ordini'; return; }
     await renderOrder(o.id);

@@ -106,7 +106,7 @@ app.get('/api/orders', auth(), (req, res) => {
   res.json(rows.map(o => {
     const items = JSON.parse(o.items);
     return { id: o.id, n_ordine: o.n_ordine, data_ordine: o.data_ordine, cliente: o.cliente, localita: o.localita, status: o.status,
-      magazzino: o.magazzino, rotoli: o.rotoli, colli: items.reduce((s, i) => s + (i.colli || 0), 0), articoli: items.length,
+      magazzino: o.magazzino, rotoli: o.rotoli, colli: items.reduce((s, i) => s + (i.rimosso ? 0 : i.colli || 0), 0), articoli: items.filter(i => !i.rimosso).length,
       prepared_by: o.prepared_by, prepared_date: o.prepared_date, ddt: o.ddt, created_at: o.created_at };
   }));
 });
@@ -138,7 +138,8 @@ app.patch('/api/orders/:id', auth(), ah((req, res) => {
   if (isMag && Array.isArray(b.items)) throw fail(403, 'Operazione riservata alla logistica.');
   for (const f of fields) if (f in b) db.prepare(`UPDATE orders SET ${f} = ? WHERE id = ?`).run(b[f] === '' ? null : b[f], o.id);
   if (Array.isArray(b.items)) db.prepare('UPDATE orders SET items = ? WHERE id = ?').run(JSON.stringify(b.items.map(i => ({
-    codice: i.codice || null, descrizione: i.descrizione || '', gr_mq: i.gr_mq ?? null, colli: i.colli ?? null, quantita_kg: i.quantita_kg ?? null }))), o.id);
+    codice: i.codice || null, descrizione: i.descrizione || '', gr_mq: i.gr_mq ?? null, colli: i.colli ?? null, quantita_kg: i.quantita_kg ?? null,
+    ...(i.righe != null ? { righe: i.righe } : {}), ...(i.rimosso ? { rimosso: true } : {}) }))), o.id);
   res.json(orderView(getOrder(o.id), req.user.r));
 }));
 
@@ -167,7 +168,19 @@ app.put('/api/orders/:id/lines', auth(), ah((req, res) => {
   const o = getOrder(req.params.id);
   editable(o);
   if (req.body?.submit && req.user.r === 'ufficio') throw fail(403, 'La conferma "preparato" la dà il magazzino.');
-  saveLines(o.id, Array.isArray(req.body?.lines) ? req.body.lines : []);
+  // Righe visibili per prodotto e prodotti eliminati dal magazzino o dalla logistica (× con conferma).
+  const items = JSON.parse(o.items);
+  if (Array.isArray(req.body?.layout)) {
+    req.body.layout.forEach((x, i) => {
+      if (!items[i] || !x) return;
+      const n = parseInt(x.righe, 10);
+      if (Number.isFinite(n) && n >= 0) items[i].righe = Math.min(n, 500);
+      if (x.rimosso) items[i].rimosso = true; else delete items[i].rimosso;
+    });
+    db.prepare('UPDATE orders SET items = ? WHERE id = ?').run(JSON.stringify(items), o.id);
+  }
+  const lines = (Array.isArray(req.body?.lines) ? req.body.lines : []).filter(l => !items[Number(l.item) || 0]?.rimosso);
+  saveLines(o.id, lines);
   // "Preparato da" e data: scritti liberamente da chi prepara (la data dal calendario).
   const b = req.body || {};
   if ('prepared_by' in b || 'prepared_date' in b) {
